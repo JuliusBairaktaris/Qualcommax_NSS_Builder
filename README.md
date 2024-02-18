@@ -5,9 +5,7 @@ This project automates OpenWRT builds for the Xiaomi AX3600, focusing on compreh
 ## Features
 
 The build features:
-- **Full NSS (Network Subsystem) support** for enhanced networking performance, including:
-  - Essential NSS configurations
-  - NSS drivers for PPPoE, Qdisc, and IFB: `CONFIG_PACKAGE_kmod-qca-nss-drv-pppoe=y`, `CONFIG_PACKAGE_kmod-qca-nss-drv-qdisc=y`, `CONFIG_PACKAGE_kmod-nss-ifb=y`
+- **Full NSS (Network Subsystem) support** for enhanced networking performance.
 - **LuCI**, a web-based GUI for OpenWRT, for easy system administration.
 - **SQM (Smart Queue Management)** support to reduce bufferbloat, enhance overall network responsiveness, and manage network traffic effectively. Includes `luci-app-sqm` and `sqm-scripts-nss`. For configuration details, refer to [SQM Scripts NSS documentation](https://github.com/rickkdotnet/sqm-scripts-nss).
 - **Security and Network Management Tools**:
