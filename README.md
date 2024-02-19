@@ -14,7 +14,7 @@ The build features:
 
 ## Recommended Configuration
 - Packet Steering: Disabled.
-- Hardware Flow Offloading:Enabled, since `CONFIG_PACKAGE_kmod-qca-nss-drv-match=y` is used. Without it, users may experience severe latency issues, such as 6000ms delays in DNS redirection.
+- Hardware Flow Offloading: Enabled, since `CONFIG_PACKAGE_kmod-qca-nss-drv-match=y` is used. Without it, users may experience severe latency issues, such as 6000ms delays in DNS redirection.
 
 ## Contributing
 
