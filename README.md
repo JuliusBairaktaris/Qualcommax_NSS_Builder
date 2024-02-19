@@ -7,11 +7,14 @@ This project automates OpenWRT builds for the Xiaomi AX3600, focusing on compreh
 The build features:
 - **Full NSS (Network Subsystem) support** for enhanced networking performance.
 - **LuCI**, a web-based GUI for OpenWRT, for easy system administration.
-- **SQM (Smart Queue Management)** support to reduce bufferbloat, enhance overall network responsiveness, and manage network traffic effectively. Includes `luci-app-sqm` and `sqm-scripts-nss`. For configuration details, refer to [SQM Scripts NSS documentation](https://github.com/rickkdotnet/sqm-scripts-nss).
 - **Security and Network Management Tools**:
   - `luci-app-banip` for IP-based banning.
   - `luci-ssl` to secure the LuCI web interface with SSL/TLS.
 - **Comprehensive Wireless Protocol Support** with `wpad-mbedtls` (Full).
+
+## Recommended Configuration
+- Packet Steering: Disabled.
+- Hardware Flow Offloading:Enabled, since `CONFIG_PACKAGE_kmod-qca-nss-drv-match=y` is used. Without it, users may experience severe latency issues, such as 6000ms delays in DNS redirection.
 
 ## Contributing
 
