@@ -56,8 +56,13 @@ jobs:
         run: |
           mv my_repo/ax3600.config .config
           make defconfig
-      - name: Output the configuration
-        run: cat .config
+      - name: Enable Pbuf script
+        run: |
+          mkdir -p files/etc/uci-defaults
+          cat > files/etc/uci-defaults/xxx_config << EOF
+          uci set pbuf.opt.memory_profile=512mb
+          uci commit
+          EOF
       - name: Download package sources
         run: |
           make download V=s
