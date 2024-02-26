@@ -14,6 +14,7 @@ The build features:
 
 ## Recommended Configuration
 - Packet Steering: Disabled.
+- Software / Hardware flow offloading: Disabled. 
 
 ## Contributing
 
