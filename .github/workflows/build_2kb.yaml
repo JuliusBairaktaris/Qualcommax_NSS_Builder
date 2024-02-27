@@ -60,7 +60,6 @@ jobs:
         run: |
           mkdir -p files/etc/uci-defaults
           cat > files/etc/uci-defaults/xxx_config << EOF
-          uci set pbuf.opt.memory_profile=512mb
           uci set wireless.radio0.country='US'
           uci set wireless.radio1.country='US'
           uci set wireless.radio2.country='US'
