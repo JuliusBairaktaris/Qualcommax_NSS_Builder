@@ -65,6 +65,7 @@ jobs:
           uci set wireless.radio1.country='US'
           uci set wireless.radio2.country='US'
           uci set wireless.radio1.htmode='HE160'
+          uci set wireless.radio1.channel='44'
           uci commit
           EOF
       - name: Download package sources
