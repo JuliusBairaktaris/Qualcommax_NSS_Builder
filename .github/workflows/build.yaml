@@ -103,7 +103,7 @@ jobs:
         run: echo "NOW=$(date +%F)" >> $GITHUB_ENV
 
       - name: Create and upload release
-        uses: softprops/action-gh-release@v975c1b265e11dd76618af1c374e7981f9a6ff44a
+        uses: softprops/action-gh-release@master
         with:
           files: bin/targets/qualcommax/ipq807x/*
           tag_name: Qualcommax-6.1-nss-wifi-${{ env.NOW }}
