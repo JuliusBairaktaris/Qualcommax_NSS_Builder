@@ -66,6 +66,7 @@ jobs:
           uci set wireless.radio2.country='US'
           uci set wireless.radio1.htmode='HE160'
           uci set wireless.radio1.channel='44'
+          uci del firewall.cfg01e63d.flow_offloading
           uci commit
           EOF
       - name: Download package sources
