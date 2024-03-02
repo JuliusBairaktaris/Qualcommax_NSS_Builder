@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
   schedule:
-    - cron: '0 4 * * *'
+    - cron: "0 4 * * *"
 jobs:
   check:
     name: Check remote repo for new commits
@@ -31,7 +31,7 @@ jobs:
     name: Build the remote repository
     needs: check
     runs-on: ubuntu-latest
-    if: ${{ needs.check.outputs.commit_age <= 168 || github.event_name == 'workflow_dispatch' }}
+    if: ${{ needs.check.outputs.commit_age <= 24 || github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Show inputs received from previous job
         env:
@@ -56,7 +56,7 @@ jobs:
         run: |
           mv my_repo/ax3600.config .config
           make defconfig
-      - name: QOL Enhancements 
+      - name: QOL Enhancements
         run: |
           mkdir -p files/etc/uci-defaults
           cat > files/etc/uci-defaults/xxx_config << EOF
@@ -117,4 +117,3 @@ jobs:
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
-
