@@ -67,6 +67,7 @@ jobs:
           uci set wireless.radio1.htmode='HE160'
           uci set wireless.radio1.channel='44'
           uci del firewall.cfg01e63d.flow_offloading
+          uci set dropbear.cfg014dd4.Interface='lan'
           uci commit
           EOF
       - name: Download package sources
