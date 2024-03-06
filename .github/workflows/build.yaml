@@ -78,15 +78,15 @@ jobs:
           make download V=s
       - name: Build tools
         run: |
-          make tools/install -j$(nproc) V=s || \
+          make tools/install -j$(($(nproc)+1)) V=s || \
           make tools/install V=s
       - name: Build toolchain
         run: |
-          make toolchain/install -j$(nproc) V=s || \
+          make toolchain/install -j$(($(nproc)+1)) V=s || \
           make toolchain/install V=s
       - name: Build target images
         run: |
-          make -j$(nproc) V=s || \
+          make -j$(($(nproc)+1)) V=s || \
           make V=s
       - name: TAR output
         run: tar -cvf ipq807xx-images.tar bin/targets/qualcommax/ipq807x
