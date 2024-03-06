@@ -56,6 +56,11 @@ jobs:
         run: |
           mv my_repo/ax3600.config .config
           make defconfig
+      - name: Include custom files
+        run: |
+          mkdir -p files/
+          mv my_repo/files/* files/
+          make defconfig
       - name: QOL Enhancements
         run: |
           mkdir -p files/etc/uci-defaults
