@@ -118,3 +118,11 @@ jobs:
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete older releases
+        uses: dev-drprasad/delete-older-releases@master
+        with:
+        keep_latest: 2
+        delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
