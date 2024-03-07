@@ -1,22 +1,30 @@
-name: Build remote repo only if new commits were pushed
+name: Build OpenWrt for specific target and release
+
 on:
   workflow_dispatch:
   push:
   schedule:
     - cron: "0 4 * * *"
+
+env:
+  REMOTE_REPOSITORY: qosmio/openwrt-ipq
+  REMOTE_BRANCH: qualcommax-6.1-nss-wifi
+  CONFIG_FILE: ax3600.config
+  CUSTOM_FILES_PATH: files/
+  RELEASE_PREFIX: Qualcommax-6.1-nss-wifi
+
 jobs:
-  check:
-    name: Check remote repo for new commits
+  check_commits:
+    name: Check for new commits
     runs-on: ubuntu-latest
+    outputs:
+      commit_age: ${{ steps.calc_commit_age.outputs.commit_age }}
     steps:
-      - name: Use GitHub API to poll commits
+      - name: Fetch latest commit
         run: |
-          curl -sL "https://api.github.com/repos/$REMOTE_REPOSITORY/commits?sha=$REMOTE_BRANCH&per_page=1" | jq -r '[.[]][0]' > commit.json
-        env:
-          REMOTE_REPOSITORY: qosmio/openwrt-ipq
-          REMOTE_BRANCH: qualcommax-6.1-nss-wifi
-      - name: Calculate hours since last commit
-        id: calc
+          curl -sL "https://api.github.com/repos/${{ env.REMOTE_REPOSITORY }}/commits?sha=${{ env.REMOTE_BRANCH }}&per_page=1" | jq -r '[.[]][0]' > commit.json
+      - name: Calculate commit age
+        id: calc_commit_age
         run: |
           date="$(jq -r '.commit.committer.date' commit.json)"
           timestamp=$(date --utc -d "$date" +%s)
@@ -24,43 +32,36 @@ jobs:
           echo "Last commit date: $date"
           echo "Hours since last commit: $hours"
           echo "commit_age=$hours" >> $GITHUB_OUTPUT
-    outputs:
-      commit_age: ${{ steps.calc.outputs.commit_age }}
 
   build:
-    name: Build the remote repository
-    needs: check
+    name: Build OpenWrt
+    needs: check_commits
     runs-on: ubuntu-latest
-    if: ${{ needs.check.outputs.commit_age <= 24 || github.event_name == 'workflow_dispatch' }}
+    if: ${{ needs.check_commits.outputs.commit_age <= 24 || github.event_name == 'workflow_dispatch' }}
     steps:
-      - name: Show inputs received from previous job
-        env:
-          COMMIT_AGE: ${{ needs.check.outputs.commit_age }}
-        run: |
-          echo "Build triggered with commits last pushed $COMMIT_AGE hours ago"
-      - name: Checkout
+      - name: Checkout remote repository
         uses: actions/checkout@v4
         with:
-          repository: qosmio/openwrt-ipq
-          ref: qualcommax-6.1-nss-wifi
-      - name: Checkout my repository for config file
+          repository: ${{ env.REMOTE_REPOSITORY }}
+          ref: ${{ env.REMOTE_BRANCH }}
+      - name: Checkout custom repository
         uses: actions/checkout@v4
         with:
           repository: "starraiderx/Qualcommax_NSS_Builder"
-          path: "my_repo"
+          path: "custom_repo"
       - name: Update and install feeds
         run: |
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-      - name: Configure the firmware image
+      - name: Configure firmware image
         run: |
-          mv my_repo/ax3600.config .config
+          mv custom_repo/${{ env.CONFIG_FILE }} .config
           make defconfig
       - name: Include custom files
         run: |
-          mkdir -p files/
-          mv my_repo/files/* files/
-      - name: QOL Enhancements
+          mkdir -p ${{ env.CUSTOM_FILES_PATH }}
+          mv custom_repo/${{ env.CUSTOM_FILES_PATH }}* ${{ env.CUSTOM_FILES_PATH }}
+      - name: Apply QOL enhancements
         run: |
           mkdir -p files/etc/uci-defaults
           cat > files/etc/uci-defaults/xxx_config << EOF
@@ -74,8 +75,7 @@ jobs:
           uci commit
           EOF
       - name: Download package sources
-        run: |
-          make download V=s
+        run: make download V=s
       - name: Build tools
         run: |
           make tools/install -j$(($(nproc)+1)) V=s || \
@@ -88,7 +88,7 @@ jobs:
         run: |
           make -j$(($(nproc)+1)) V=s || \
           make V=s
-      - name: TAR output
+      - name: Package output
         run: tar -cvf ipq807xx-images.tar bin/targets/qualcommax/ipq807x
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -97,32 +97,28 @@ jobs:
           path: ipq807xx-images.tar
 
   release:
-    name: Upload artifacts as release
+    name: Create release
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download the image artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           name: ipq807x-images
-
-      - name: Extract the image artifacts
+      - name: Extract artifacts
         run: tar xf ipq807xx-images.tar
-
-      - name: Get the current date
-        run: echo "NOW=$(date +%F)" >> $GITHUB_ENV
-
-      - name: Create and upload release
-        uses: softprops/action-gh-release@master
+      - name: Get current date
+        run: echo "RELEASE_DATE=$(date +%F)" >> $GITHUB_ENV
+      - name: Create release
+        uses: ncipollo/release-action@master
         with:
-          files: bin/targets/qualcommax/ipq807x/*
-          tag_name: Qualcommax-6.1-nss-wifi-${{ env.NOW }}
-          name: Updated prebuilt images ${{ env.NOW }}
+          artifacts: "bin/targets/qualcommax/ipq807x/*"
+          tag: ${{ env.RELEASE_PREFIX }}-${{ env.RELEASE_DATE }}
+          name: Updated prebuilt images ${{ env.RELEASE_DATE }}
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Delete older releases
+      - name: Clean up old releases
         uses: dev-drprasad/delete-older-releases@master
         with:
           keep_latest: 2
