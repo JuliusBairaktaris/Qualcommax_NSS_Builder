@@ -10,6 +10,7 @@ The build features:
 - **Security and Network Management Tools**:
   - `luci-app-banip` for IP-based banning.
   - `luci-ssl` to secure the LuCI web interface with SSL/TLS.
+- Hardened OpenSSH configuration using recommendations from [ssh-audit](https://github.com/jtesta/ssh-audit)
 - **Comprehensive Wireless Protocol Support** with `wpad-mbedtls` (Full).
 - Build with `CONFIG_TARGET_OPTIMIZATION="-O3 -pipe -mcpu=cortex-a53+crc+crypto"; CONFIG_USE_LTO=y; CONFIG_USE_MOLD=y; CONFIG_ZLIB_OPTIMIZE_SPEED=y` for higher Performance.
 
@@ -17,7 +18,6 @@ The build features:
 - Packet Steering: Disabled.
 - Software / Hardware flow offloading: Disabled.
 - Set your specific country code for WIFI.
-- Bind Dropbear to lan interface only
 
 ## Contributing
 
