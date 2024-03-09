@@ -9,7 +9,7 @@ on:
 env:
   REMOTE_REPOSITORY: qosmio/openwrt-ipq
   REMOTE_BRANCH: qualcommax-6.1-nss-wifi-skb
-  CONFIG_FILE: ax3600.config
+  CONFIG_FILE: ax3600-skb.config
   CUSTOM_FILES_PATH: files/
   RELEASE_PREFIX: Qualcommax-6.1-nss-wifi-skb
 
