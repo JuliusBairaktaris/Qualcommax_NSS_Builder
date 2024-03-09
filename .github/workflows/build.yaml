@@ -110,7 +110,7 @@ jobs:
       - name: Get current date
         run: echo "RELEASE_DATE=$(date +%F)" >> $GITHUB_ENV
       - name: Create release
-        uses: ncipollo/release-action@master
+        uses: ncipollo/release-action@main
         with:
           artifacts: "bin/targets/qualcommax/ipq807x/*"
           tag: ${{ env.RELEASE_PREFIX }}-${{ env.RELEASE_DATE }}
@@ -119,7 +119,7 @@ jobs:
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Clean up old releases
-        uses: dev-drprasad/delete-older-releases@main
+        uses: dev-drprasad/delete-older-releases@master
         with:
           keep_latest: 2
           delete_tags: true
