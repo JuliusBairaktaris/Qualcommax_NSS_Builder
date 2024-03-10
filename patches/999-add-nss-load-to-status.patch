@@ -1,0 +1,55 @@
+diff --git a/modules/luci-mod-status/htdocs/luci-static/resources/view/status/include/10_system.js b/modules/luci-mod-status/htdocs/luci-static/resources/view/status/include/10_system.js
+index 45f7b4acae..eb517df296 100644
+--- a/modules/luci-mod-status/htdocs/luci-static/resources/view/status/include/10_system.js
++++ b/modules/luci-mod-status/htdocs/luci-static/resources/view/status/include/10_system.js
+@@ -25,14 +25,26 @@ return baseclass.extend({
+ 		return Promise.all([
+ 			L.resolveDefault(callSystemBoard(), {}),
+ 			L.resolveDefault(callSystemInfo(), {}),
+-			L.resolveDefault(callLuciVersion(), { revision: _('unknown version'), branch: 'LuCI' })
++			L.resolveDefault(callLuciVersion(), { revision: _('unknown version'), branch: 'LuCI' }),
++			fs.lines('/sys/kernel/debug/qca-nss-drv/stats/cpu_load_ubi').then(L.bind(function(lines) {
++			  var stats = [];
++			  for (var i = 0; i < lines.length; i++) {
++				  if (lines[i].match(/%/)) {
++					var stat = lines[i].split(/\s+/);
++					stats['avg'] = stat[1];
++					stats['max'] = stat[2];
++					return stats;
++				  }
++			  }
++			}))
+ 		]);
+ 	},
+ 
+ 	render: function(data) {
+ 		var boardinfo   = data[0],
+ 		    systeminfo  = data[1],
+-		    luciversion = data[2];
++		    luciversion = data[2],
++		    nssinfo     = data[3];
+ 
+ 		luciversion = luciversion.branch + ' ' + luciversion.revision;
+ 
+@@ -64,7 +76,8 @@ return baseclass.extend({
+ 				systeminfo.load[0] / 65535.0,
+ 				systeminfo.load[1] / 65535.0,
+ 				systeminfo.load[2] / 65535.0
+-			) : null
++			) : null,
++			_('NSS Load'),         (L.isObject(nssinfo) ? 'Avg: %s Max: %s'.format(nssinfo.avg, nssinfo.max) : null)
+ 		];
+ 
+ 		var table = E('table', { 'class': 'table' });
+diff --git a/modules/luci-mod-status/root/usr/share/rpcd/acl.d/luci-mod-status.json b/modules/luci-mod-status/root/usr/share/rpcd/acl.d/luci-mod-status.json
+index 45dd7d7d9e..987081970c 100644
+--- a/modules/luci-mod-status/root/usr/share/rpcd/acl.d/luci-mod-status.json
++++ b/modules/luci-mod-status/root/usr/share/rpcd/acl.d/luci-mod-status.json
+@@ -31,6 +31,7 @@
+ 		"read": {
+ 			"cgi-io": [ "exec" ],
+ 			"file": {
++				"/sys/kernel/debug/qca-nss-drv/stats/cpu_load_ubi": [ "read" ],
+ 				"/bin/dmesg -r": [ "exec" ],
+ 				"/sbin/logread": [ "stat" ],
+ 				"/sbin/logread -e ^": [ "exec" ],
