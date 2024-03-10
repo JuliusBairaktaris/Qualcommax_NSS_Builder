@@ -54,6 +54,7 @@ jobs:
         run: |
           cd custom_repo
           ls
+          cd patches && ls
       - name: Update and install feeds
         run: |
           ./scripts/feeds update -a
