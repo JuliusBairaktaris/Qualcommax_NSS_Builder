@@ -57,6 +57,8 @@ jobs:
       - name: Apply custom patches
         run: |
           ls
+          cd feeds
+          ls
           mv custom_repo/patches/${{ env.NSS-STATUS_PATCH }} /feeds/luci/${{ env.NSS-STATUS_PATCH }}
           git apply /feeds/luci/${{ env.NSS-STATUS_PATCH }}
       - name: Configure firmware image
