@@ -110,10 +110,10 @@ jobs:
       - name: Get current date
         run: echo "RELEASE_DATE=$(date +%F)" >> $GITHUB_ENV
       - name: Create release
-        uses: ncipollo/release-action@main
+        uses: softprops/action-gh-release@master
         with:
-          artifacts: "bin/targets/qualcommax/ipq807x/*"
-          tag: ${{ env.RELEASE_PREFIX }}-${{ env.RELEASE_DATE }}
+          files: bin/targets/qualcommax/ipq807x/*
+          tag_name: ${{ env.RELEASE_PREFIX }}-${{ env.RELEASE_DATE }}
           name: Updated prebuilt images ${{ env.RELEASE_DATE }}
           draft: false
           prerelease: false
