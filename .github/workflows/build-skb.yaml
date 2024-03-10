@@ -50,15 +50,15 @@ jobs:
         with:
           repository: "starraiderx/Qualcommax_NSS_Builder"
           path: "custom_repo"
+          run: |
+            cd custom_repo
+            ls
       - name: Update and install feeds
         run: |
           ./scripts/feeds update -a
           ./scripts/feeds install -a
       - name: Apply custom patches
         run: |
-          ls
-          cd feeds
-          ls
           mv custom_repo/patches/${{ env.NSS-STATUS_PATCH }} /feeds/luci/${{ env.NSS-STATUS_PATCH }}
           git apply /feeds/luci/${{ env.NSS-STATUS_PATCH }}
       - name: Configure firmware image
