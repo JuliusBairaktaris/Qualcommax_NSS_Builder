@@ -53,3 +53,4 @@ index 45dd7d7d9e..987081970c 100644
  				"/bin/dmesg -r": [ "exec" ],
  				"/sbin/logread": [ "stat" ],
  				"/sbin/logread -e ^": [ "exec" ],
+                
