@@ -8,11 +8,11 @@ on:
 
 env:
   REMOTE_REPOSITORY: qosmio/openwrt-ipq
-  REMOTE_BRANCH: qualcommax-6.1-nss-wifi-skb
+  REMOTE_BRANCH: qualcommax-6.1-nss-wifi
   CONFIG_FILE: ax3600.config
   NSS-STATUS_PATCH: 999-add-nss-load-to-status.patch
   CUSTOM_FILES_PATH: files/
-  RELEASE_PREFIX: Qualcommax-6.1-nss-wifi-skb
+  RELEASE_PREFIX: Qualcommax-6.1-nss-wifi
 
 jobs:
   check_commits:
