@@ -6,13 +6,13 @@ This project automates OpenWRT builds for the Xiaomi AX3600, focusing on compreh
 
 The build features:
 - **Full NSS (Network Subsystem) support** for enhanced networking performance.
-- **LuCI**, a web-based GUI for OpenWRT, for easy system administration.
+- **NSS info patch** for the Luci status page by @qosmio
 - **Security and Network Management Tools**:
   - `luci-app-banip` for IP-based banning.
   - `luci-ssl` to secure the LuCI web interface with SSL/TLS.
-- Hardened OpenSSH configuration using recommendations from [ssh-audit](https://github.com/jtesta/ssh-audit)
+- **Hardened OpenSSH configuration** using recommendations from [ssh-audit](https://github.com/jtesta/ssh-audit)
 - **Comprehensive Wireless Protocol Support** with `wpad-mbedtls` (Full).
-- Build with `CONFIG_TARGET_OPTIMIZATION="-O3 -pipe -mcpu=cortex-a53+crc+crypto"; CONFIG_USE_LTO=y; CONFIG_USE_MOLD=y; CONFIG_ZLIB_OPTIMIZE_SPEED=y` for higher Performance.
+- **Build with** `CONFIG_TARGET_OPTIMIZATION="-O3 -pipe -mcpu=cortex-a53+crc+crypto"; CONFIG_USE_LTO=y; CONFIG_USE_MOLD=y; CONFIG_ZLIB_OPTIMIZE_SPEED=y` for higher Performance.
 
 ## Recommended Configuration
 - Packet Steering: Disabled.
