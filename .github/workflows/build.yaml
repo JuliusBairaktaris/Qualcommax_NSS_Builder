@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       new_commits: ${{ steps.check_new_commits.outputs.new_commits }}
+      latest_commit_sha: ${{ steps.check_new_commits.outputs.latest_commit_sha }}
     steps:
       - name: Check for new commits
         id: check_new_commits
@@ -27,6 +28,7 @@ jobs:
           latest_commit_sha=$(curl -sL "https://api.github.com/repos/${{ env.REMOTE_REPOSITORY }}/commits?sha=${{ env.REMOTE_BRANCH }}&per_page=1" | jq -r '.[0].sha')
           last_built_commit_sha=$(curl -sL "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.body' | grep -oP 'Build Commit: \K\w+' || echo '')
           echo "new_commits=$([[ "$latest_commit_sha" != "$last_built_commit_sha" ]] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
+          echo "latest_commit_sha=$latest_commit_sha" >> $GITHUB_OUTPUT
 
   build:
     name: Build OpenWrt
@@ -91,7 +93,7 @@ jobs:
 
   release:
     name: Create release
-    needs: build
+    needs: [build, check_commits]
     if: needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -103,8 +105,6 @@ jobs:
         run: tar xf ipq807xx-images.tar
       - name: Get current date
         run: echo "RELEASE_DATE=$(date +%F)" >> $GITHUB_ENV
-      - name: Get commit SHA
-        run: echo "COMMIT_SHA=$(echo ${{ github.sha }} | cut -c 1-7)" >> $GITHUB_ENV
       - name: Create release
         uses: softprops/action-gh-release@master
         with:
@@ -113,7 +113,7 @@ jobs:
           name: Updated prebuilt images ${{ env.RELEASE_DATE }}
           body: |
             Updated prebuilt images for ${{ env.RELEASE_DATE }}
-            Build Commit: ${{ env.COMMIT_SHA }}
+            Build Commit: ${{ needs.check_commits.outputs.latest_commit_sha }}
       - name: Clean up old releases
         uses: dev-drprasad/delete-older-releases@master
         with:
