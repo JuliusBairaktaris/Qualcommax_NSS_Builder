@@ -6,7 +6,6 @@ on:
   schedule:
     - cron: "0 */2 * * *"
 
-
 env:
   REMOTE_REPOSITORY: qosmio/openwrt-ipq
   REMOTE_BRANCH: qualcommax-6.1-nss-wifi
@@ -76,7 +75,7 @@ jobs:
           uci commit
           EOF
       - name: Download package sources
-        run: make download V=s
+        run: make download j$(nproc) V=s || make download V=s
       - name: Build tools and toolchain
         run: |
           make tools/install -j$(nproc) V=s || make tools/install V=s
