@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
   push:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 */2 * * *"
+
 
 env:
   REMOTE_REPOSITORY: qosmio/openwrt-ipq
@@ -21,23 +22,12 @@ jobs:
     outputs:
       new_commits: ${{ steps.check_new_commits.outputs.new_commits }}
     steps:
-      - name: Fetch latest commit and release
-        run: |
-          curl -sL "https://api.github.com/repos/${{ env.REMOTE_REPOSITORY }}/commits?sha=${{ env.REMOTE_BRANCH }}&per_page=1" | jq -r '[.[]][0]' > latest_commit.json
-          curl -sL "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq '.' > latest_release.json
       - name: Check for new commits
         id: check_new_commits
         run: |
-          latest_commit_sha=$(jq -r '.sha' latest_commit.json)
-          last_built_commit_sha=$(jq -r '.body' latest_release.json | grep -oP 'Build Commit: \K\w+' || echo '')
-
-          if [[ "$latest_commit_sha" != "$last_built_commit_sha" ]]; then
-            echo "New commits found. Latest commit: $latest_commit_sha"
-            echo "new_commits=true" >> $GITHUB_OUTPUT
-          else
-            echo "No new commits found."
-            echo "new_commits=false" >> $GITHUB_OUTPUT
-          fi
+          latest_commit_sha=$(curl -sL "https://api.github.com/repos/${{ env.REMOTE_REPOSITORY }}/commits?sha=${{ env.REMOTE_BRANCH }}&per_page=1" | jq -r '.[0].sha')
+          last_built_commit_sha=$(curl -sL "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.body' | grep -oP 'Build Commit: \K\w+' || echo '')
+          echo "new_commits=$([[ "$latest_commit_sha" != "$last_built_commit_sha" ]] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
 
   build:
     name: Build OpenWrt
