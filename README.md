@@ -18,6 +18,7 @@ The build features:
 - Packet Steering: Disabled.
 - Software / Hardware flow offloading: Disabled.
 - Set your specific country code for WIFI.
+- Set `pbuf.opt.memory_profile=off` unless you have more than 65 clients connecting over wifi or are experiencing hangups while torrenting.
 
 ## Contributing
 
