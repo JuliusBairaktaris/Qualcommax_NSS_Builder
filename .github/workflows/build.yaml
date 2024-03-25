@@ -56,17 +56,19 @@ jobs:
         run: |
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-      - name: Apply custom patches
+      - name: Apply NSS Status patch
         run: |
           mv custom_repo/patches/${{ env.NSS_STATUS_PATCH }} feeds/luci/${{ env.NSS_STATUS_PATCH }}
           cd feeds/luci
           git apply ${{ env.NSS_STATUS_PATCH }}
+      - name: Remove nft-fullcone 
+        run: |
+          sed -i '/+kmod-nft-fullcone/d' package/network/config/firewall4/Makefile
+          cat package/network/config/firewall4/Makefile
       - name: Configure firmware image
         run: |
           mv custom_repo/${{ env.CONFIG_FILE }} .config
           make -j$(nproc) defconfig
-          sed -i 's/CONFIG_PACKAGE_kmod-nft-fullcone=y/CONFIG_PACKAGE_kmod-nft-fullcone=n/g' .config
-          cat .config
       - name: Include custom files
         run: |
           mkdir -p ${{ env.CUSTOM_FILES_PATH }}
