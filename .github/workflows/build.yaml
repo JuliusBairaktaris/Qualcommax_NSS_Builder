@@ -64,6 +64,10 @@ jobs:
       - name: Configure firmware image
         run: |
           mv custom_repo/${{ env.CONFIG_FILE }} .config
+          make -j$(nproc) defconfig
+          sed -i 's/CONFIG_PACKAGE_kmod-nft-fullcone=y/CONFIG_PACKAGE_kmod-nft-fullcone=n/g' .config
+          sed -i '/CONFIG_PACKAGE_kmod-nft-fullcone=n/d' .config
+          cat .config
       - name: Include custom files
         run: |
           mkdir -p ${{ env.CUSTOM_FILES_PATH }}
@@ -82,7 +86,7 @@ jobs:
           uci commit
           EOF
       - name: Build the firmware image
-        run: make -j$(nproc) defconfig download world V=s
+        run: make -j$(nproc) download world V=s
       - name: Package output
         run: tar -cvf ipq807xx-images.tar bin/targets/qualcommax/ipq807x
       - name: Upload artifacts
