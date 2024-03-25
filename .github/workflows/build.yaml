@@ -66,7 +66,6 @@ jobs:
           mv custom_repo/${{ env.CONFIG_FILE }} .config
           make -j$(nproc) defconfig
           sed -i 's/CONFIG_PACKAGE_kmod-nft-fullcone=y/CONFIG_PACKAGE_kmod-nft-fullcone=n/g' .config
-          sed -i '/CONFIG_PACKAGE_kmod-nft-fullcone=n/d' .config
           cat .config
       - name: Include custom files
         run: |
