@@ -61,10 +61,6 @@ jobs:
           mv custom_repo/patches/${{ env.NSS_STATUS_PATCH }} feeds/luci/${{ env.NSS_STATUS_PATCH }}
           cd feeds/luci
           git apply ${{ env.NSS_STATUS_PATCH }}
-      - name: Remove nft-fullcone 
-        run: |
-          sed -i '/+kmod-nft-fullcone/d' package/network/config/firewall4/Makefile
-          cat package/network/config/firewall4/Makefile
       - name: Configure firmware image
         run: |
           mv custom_repo/${{ env.CONFIG_FILE }} .config
