@@ -21,9 +21,7 @@ The build features:
 - Set `pbuf.opt.memory_profile=off` unless you have more than 65 clients connecting over wifi or are experiencing hangups while torrenting.
 
 ## Known Issues
-- With Kernel 6.6 software IO TLB preallocates 64M of memmory. To fix this execute the following:
-- `fw_setenv bootargs 'console=ttyMSM0,115200n8 swiotlb=noforce coherent_pool=2M ubi.mtd=rootfs rootfstype=squashfs rootwait=2'
-reboot`
+- None
 ## Contributing
 
 Contributions are highly appreciated! If you have suggestions for additional packages, essential features that are missing, or improvements to the existing setup, please feel free to submit a pull request or open an issue. Your input helps make Qualcommax_NSS_Builder even better for everyone.
