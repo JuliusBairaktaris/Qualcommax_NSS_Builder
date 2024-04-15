@@ -79,6 +79,9 @@ jobs:
           uci set wireless.radio2.country='US'
           uci set wireless.radio1.htmode='HE160'
           uci set wireless.radio1.channel='44'
+          uci set wireless.default_radio0.dtim_period='1'
+          uci set wireless.default_radio1.dtim_period='1'
+          uci set wireless.default_radio2.dtim_period='1'
           uci del firewall.cfg01e63d.flow_offloading
           uci commit
           EOF
