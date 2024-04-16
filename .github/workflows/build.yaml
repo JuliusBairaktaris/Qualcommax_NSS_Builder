@@ -72,7 +72,7 @@ jobs:
       - name: Apply QOL enhancements
         run: |
           mkdir -p files/etc/uci-defaults
-          cat > files/etc/uci-defaults/xxx_config << EOF
+          cat > files/etc/uci-defaults/999-QOL_config << EOF
           uci set pbuf.opt.memory_profile=off
           uci set wireless.radio0.country='US'
           uci set wireless.radio1.country='US'
@@ -82,7 +82,9 @@ jobs:
           uci set wireless.default_radio0.dtim_period='1'
           uci set wireless.default_radio1.dtim_period='1'
           uci set wireless.default_radio2.dtim_period='1'
-          uci del firewall.cfg01e63d.flow_offloading
+          uci set firewall.@defaults[0].flow_offloading=0
+          uci set network.globals.packet_steering=0
+          uci set ecm.@general[0].enable_bridge_filtering=0
           uci commit
           EOF
       - name: Build the firmware image
