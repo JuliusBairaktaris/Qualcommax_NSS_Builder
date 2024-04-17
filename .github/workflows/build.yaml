@@ -47,10 +47,9 @@ jobs:
         with:
           repository: ${{ env.REMOTE_REPOSITORY }}
           ref: ${{ env.REMOTE_BRANCH }}
-      - name: Checkout custom repository
+      - name: Checkout current repository
         uses: actions/checkout@v4
         with:
-          repository: "starraiderx/Qualcommax_NSS_Builder"
           path: "custom_repo"
       - name: Update and install feeds
         run: |
