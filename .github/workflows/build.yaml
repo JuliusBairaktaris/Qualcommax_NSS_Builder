@@ -58,7 +58,7 @@ jobs:
           ./scripts/feeds install -a
       - name: Apply NSS Status patch
         run: |
-          mv custom_repo/patches/${{ env.NSS_STATUS_PATCH }} feeds/luci/
+          mv custom_repo/patches/${{ env.NSS_STATUS_PATCH }} feeds/luci/${{ env.NSS_STATUS_PATCH }}
           cd feeds/luci
           git apply ${{ env.NSS_STATUS_PATCH }}
       - name: Configure firmware image
@@ -69,33 +69,6 @@ jobs:
         run: |
           mkdir -p ${{ env.CUSTOM_FILES_PATH }}
           mv custom_repo/${{ env.CUSTOM_FILES_PATH }}* ${{ env.CUSTOM_FILES_PATH }}
-      - name: Apply QOL enhancements
-        run: |
-          mkdir -p files/etc/uci-defaults
-          cat > files/etc/uci-defaults/999-QOL_config <<EOF
-          uci set pbuf.opt.memory_profile=off
-          uci set wireless.radio0.country='US'
-          uci set wireless.radio1.country='US'
-          uci set wireless.radio2.country='US'
-          uci set wireless.radio1.htmode='HE160'
-          uci set wireless.radio1.channel='44'
-          uci set wireless.default_radio0.dtim_period='1'
-          uci set wireless.default_radio0.max_inactivity='86400'
-          uci set wireless.default_radio0.disassoc_low_ack='0'
-          uci set wireless.default_radio0.wnm_sleep_mode='1'
-          uci set wireless.default_radio1.dtim_period='1'
-          uci set wireless.default_radio1.max_inactivity='86400'
-          uci set wireless.default_radio1.disassoc_low_ack='0'
-          uci set wireless.default_radio1.wnm_sleep_mode='1'
-          uci set wireless.default_radio2.dtim_period='1'
-          uci set wireless.default_radio2.max_inactivity='86400'
-          uci set wireless.default_radio2.disassoc_low_ack='0'
-          uci set wireless.default_radio2.wnm_sleep_mode='1'
-          uci set firewall.@defaults[0].flow_offloading=0
-          uci set network.globals.packet_steering=0
-          uci set ecm.@general[0].enable_bridge_filtering=0
-          uci commit
-          EOF
       - name: Build the firmware image
         run: make download world V=s -j$(nproc)
       - name: Package output
@@ -136,4 +109,3 @@ jobs:
           delete_tags: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          

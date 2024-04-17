@@ -5,11 +5,12 @@ This project automates OpenWRT builds for the Xiaomi AX3600, focusing on compreh
 ## Features
 
 The build features:
-- **Full NSS (Network Subsystem) support** 
+
+- **Full NSS (Network Subsystem) support**
 - **NSS info patch** for the Luci status page by @qosmio
 - **Security and Network Management Tools**:
-  - `luci-app-banip` 
-  - `luci-ssl-openssl` 
+  - `luci-app-banip`
+  - `luci-ssl-openssl`
   - `iperf3`
   - `htop`
 - **Hardened OpenSSH configuration** using recommendations from [ssh-audit](https://github.com/jtesta/ssh-audit)
@@ -18,12 +19,14 @@ The build features:
 - Default congestion algorithm is `bbr`
 
 ## Recommended Configuration
+
 - Packet Steering: Disabled.
 - Software / Hardware flow offloading: Disabled.
 - Set your specific country code for WIFI.
 - Set `pbuf.opt.memory_profile=off` unless you have more than 65 clients connecting over wifi or are experiencing hangups while torrenting.
 
 ## Known Issues
+
 - None
 
 ## Contributing
