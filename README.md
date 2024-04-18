@@ -42,10 +42,6 @@ To enhance the security of SSH connections, the project includes a hardened SSH 
 
 Contributions to this project are welcome. If you encounter any issues or have suggestions for improvements, please open an issue or submit a pull request on the GitHub repository.
 
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
 ## Acknowledgements
 
 - The OpenWrt project for providing the foundation for this firmware build.
