@@ -31,6 +31,13 @@ The build process is automated using GitHub Actions and consists of the followin
 
 The project utilizes a custom configuration file [`ax3600.config`](ax3600.config) to specify the desired settings for the firmware build. This file includes various options such as target platform, compiler optimizations, package selections, and more.
 
+Custom options of this fork:
+
+- AdGuardHome
+- Wireguard VPN
+- Policy-Based Routing
+- Dynamic DNS
+
 Additionally, the `uci` commands in the "Quality-of-Life Enhancements" section are used to fine-tune the wireless and network settings for improved performance and functionality. Refer to the [999-QOL_config](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/blob/main/files/etc/uci-defaults/999-QOL_config) for the specific configuration. 
 
 ## SSH Hardening
