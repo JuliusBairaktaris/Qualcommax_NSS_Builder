@@ -1,3 +1,5 @@
+yaml
+
 name: Build OpenWrt for specific target and release
 
 on:
@@ -37,7 +39,9 @@ jobs:
         id: check_nss_packages_repo_new_commits
         run: |
           nss_packages_repo_latest_commit_sha=$(curl -sL "https://api.github.com/repos/${{ env.NSS_PACKAGES_REPOSITORY }}/commits?sha=${{ env.NSS_PACKAGES_REPOSITORY_BRANCH }}&per_page=1" | jq -r '.[0].sha')
-          nss_packages_repo_last_built_commit_sha=$(curl -sL "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.body' | grep -oP 'Build Commit: \K\w+' || echo '')
+          nss_packages_repo_last_built_commit_sha=$(curl -sL "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.body' | grep -oP 'NSS Packages Build Commit: \K\w+' || echo '')
+          echo "Debugging: Latest NSS Packages commit: $nss_packages_repo_latest_commit_sha"
+          echo "Debugging: Last built NSS Packages commit: $nss_packages_repo_last_built_commit_sha"
           echo "new_commits=$([[ "$nss_packages_repo_latest_commit_sha" != "$nss_packages_repo_last_built_commit_sha" ]] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
           echo "latest_commit_sha=$nss_packages_repo_latest_commit_sha" >> $GITHUB_OUTPUT
 
