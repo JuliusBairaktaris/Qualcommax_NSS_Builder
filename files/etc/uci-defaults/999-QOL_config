@@ -19,4 +19,5 @@ set network.@device[0].igmp_snooping='1'
 set network.@device[0].multicast_querier='1'
 set firewall.@zone[1].input='DROP'
 set firewall.@zone[1].forward='DROP'
+set uhttpd.main.redirect_https='1'
 EOI
