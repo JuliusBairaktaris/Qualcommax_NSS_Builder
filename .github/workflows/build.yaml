@@ -14,7 +14,7 @@ env:
   CUSTOM_FILES_PATH: files/
   RELEASE_PREFIX: Qualcommax-6.x-nss-wifi
   NSS_PACKAGES_REPOSITORY: qosmio/nss-packages
-  NSS_PACKAGES_REPOSITORY_BRANCH: NSS-12.4-K6.x
+  NSS_PACKAGES_REPOSITORY_BRANCH: NSS-12.5-K6.x
 
 jobs:
   check_commits:
