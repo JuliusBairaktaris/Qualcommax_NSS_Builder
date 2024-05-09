@@ -63,11 +63,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: "custom_repo"
-      - name: Cache 
-        uses: klever1988/cachewrtbuild@main
+      - name: Cache tools and toolchain
+        uses: actions/cache@v4
         with:
-          ccache: 'true'
-          prefix: ${{ github.workspace }}
+          path: |
+            tools
+            toolchain
+          key: ${{ runner.os }}-${{ hashFiles('tools/**', 'toolchain/**') }}
       - name: Update and install feeds
         run: |
           ./scripts/feeds update -a
