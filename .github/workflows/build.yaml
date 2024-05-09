@@ -31,7 +31,6 @@ jobs:
         run: |
           latest_commit_sha=$(curl -sL "https://api.github.com/repos/${{ env.REMOTE_REPOSITORY }}/commits?sha=${{ env.REMOTE_BRANCH }}&per_page=1" | jq -r '.[0].sha')
           last_built_commit_sha=$(curl -sL "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.body' | grep -oP 'Build Commit: \K\w+' || echo '')
-          echo "New commits: $latest_commit_sha vs $last_built_commit_sha"
           echo "new_commits=$([[ "$latest_commit_sha" != "$last_built_commit_sha" ]] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
           echo "latest_commit_sha=$latest_commit_sha" >> $GITHUB_OUTPUT
       - name: Check for new commits in NSS Packages Repository
@@ -39,7 +38,6 @@ jobs:
         run: |
           nss_packages_repo_latest_commit_sha=$(curl -sL "https://api.github.com/repos/${{ env.NSS_PACKAGES_REPOSITORY }}/commits?sha=${{ env.NSS_PACKAGES_REPOSITORY_BRANCH }}&per_page=1" | jq -r '.[0].sha')
           nss_packages_repo_last_built_commit_sha=$(curl -sL "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.body' | grep -oP 'NSS Packages Commit: \K\w+' || echo '')
-          echo "NSS Packages Repository new commits: $nss_packages_repo_latest_commit_sha vs $nss_packages_repo_last_built_commit_sha"
           echo "new_commits=$([[ "$nss_packages_repo_latest_commit_sha" != "$nss_packages_repo_last_built_commit_sha" ]] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
           echo "latest_commit_sha=$nss_packages_repo_latest_commit_sha" >> $GITHUB_OUTPUT
 
@@ -65,13 +63,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: "custom_repo"
-      - name: Cache tools and toolchain
-        uses: actions/cache@v4
+      - name: Cache 
+        uses: klever1988/cachewrtbuild@main
         with:
-          path: |
-            tools
-            toolchain
-          key: ${{ runner.os }}-${{ hashFiles('tools/**', 'toolchain/**') }}
+          ccache: 'true'
+          prefix: ${{ github.workspace }}
       - name: Update and install feeds
         run: |
           ./scripts/feeds update -a
@@ -130,4 +126,3 @@ jobs:
           delete_tags: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
