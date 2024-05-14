@@ -35,6 +35,7 @@ Custom options of this fork:
 - **Wireguard VPN**
 - **Policy-Based Routing**
 - **AdBlock Fast**
+- **Smart Queue Management Scripts** from [qosmio repository](https://github.com/qosmio/sqm-scripts-nss)
 
 Additionally, the `uci` commands in the "Quality-of-Life Enhancements" section are used to fine-tune the wireless and network settings for improved performance and functionality. Refer to the [999-QOL_config](files/etc/uci-defaults/999-QOL_config) for the specific configuration. 
 
