@@ -83,10 +83,8 @@ jobs:
           make defconfig -j$(nproc)
       - name: Include custom files
         run: |
-          rsync -av custom_repo/ ./
-          ls 
-          cd package/network/utils/iproute2/patches/
-          ls 
+          mkdir -p ${{ env.CUSTOM_FILES_PATH }}
+          mv custom_repo/${{ env.CUSTOM_FILES_PATH }}* ${{ env.CUSTOM_FILES_PATH }}
       - name: Build the firmware image
         run: make download world V=sc -j$(nproc)
       - name: Package output
