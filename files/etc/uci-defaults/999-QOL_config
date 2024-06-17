@@ -1,6 +1,6 @@
 uci -q batch << EOI
 # Set memory profile to auto
-set pbuf.opt.memory_profile='auto'
+set pbuf.opt.memory_profile='1gb'
 
 # Wireless default settings for radio0
 set wireless.default_radio0.dtim_period='1'
