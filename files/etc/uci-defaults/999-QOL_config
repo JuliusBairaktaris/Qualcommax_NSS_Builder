@@ -28,6 +28,7 @@ set wireless.default_radio1.bss_transition='1'
 set wireless.default_radio1.proxy_arp='1'
 
 # Wireless radio1 specific settings
+set wireless.radio1.htmode='HE40'
 set wireless.radio1.country='US'
 
 # Firewall settings
