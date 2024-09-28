@@ -1,0 +1,128 @@
+name: Build OpenWrt for specific target and release
+
+on:
+  workflow_dispatch:
+  push:
+  schedule:
+    - cron: "0 */2 * * *"
+
+env:
+  REMOTE_REPOSITORY: qosmio/openwrt-ipq
+  REMOTE_BRANCH: qualcommax-6.x-nss-ath11k-2.12
+  CONFIG_FILE: ax3600.config
+  CUSTOM_FILES_PATH: files/
+  RELEASE_PREFIX: qualcommax-6.x-nss-ath11k-2.12
+  NSS_PACKAGES_REPOSITORY: qosmio/nss-packages
+  NSS_PACKAGES_REPOSITORY_BRANCH: NSS-12.5-K6.x
+
+jobs:
+  check_commits:
+    name: Check for new commits
+    runs-on: ubuntu-24.04
+    outputs:
+      new_commits: ${{ steps.check_new_commits.outputs.new_commits }}
+      latest_commit_sha: ${{ steps.check_new_commits.outputs.latest_commit_sha }}
+      nss_packages_repo_new_commits: ${{ steps.check_nss_packages_repo_new_commits.outputs.new_commits }}
+      nss_packages_repo_latest_commit_sha: ${{ steps.check_nss_packages_repo_new_commits.outputs.latest_commit_sha }}
+    steps:
+      - name: Check for new commits
+        id: check_new_commits
+        run: |
+          latest_commit_sha=$(curl -sL "https://api.github.com/repos/${{ env.REMOTE_REPOSITORY }}/commits?sha=${{ env.REMOTE_BRANCH }}&per_page=1" | jq -r '.[0].sha')
+          last_built_commit_sha=$(curl -sL "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.body' | grep -oP 'Build Commit: \K\w+' || echo '')
+          echo "new_commits=$([[ "$latest_commit_sha" != "$last_built_commit_sha" ]] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
+          echo "latest_commit_sha=$latest_commit_sha" >> $GITHUB_OUTPUT
+      - name: Check for new commits in NSS Packages Repository
+        id: check_nss_packages_repo_new_commits
+        run: |
+          nss_packages_repo_latest_commit_sha=$(curl -sL "https://api.github.com/repos/${{ env.NSS_PACKAGES_REPOSITORY }}/commits?sha=${{ env.NSS_PACKAGES_REPOSITORY_BRANCH }}&per_page=1" | jq -r '.[0].sha')
+          nss_packages_repo_last_built_commit_sha=$(curl -sL "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.body' | grep -oP 'NSS Packages Commit: \K\w+' || echo '')
+          echo "new_commits=$([[ "$nss_packages_repo_latest_commit_sha" != "$nss_packages_repo_last_built_commit_sha" ]] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
+          echo "latest_commit_sha=$nss_packages_repo_latest_commit_sha" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build OpenWrt
+    needs: check_commits
+    if: needs.check_commits.outputs.new_commits == 'true' || needs.check_commits.outputs.nss_packages_repo_new_commits == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            build-essential clang flex bison g++ gawk \
+            gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev \
+            python3-setuptools rsync swig unzip zlib1g-dev file wget
+          sudo apt full-upgrade -y
+      - name: Checkout remote repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.REMOTE_REPOSITORY }}
+          ref: ${{ env.REMOTE_BRANCH }}
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+        with:
+          path: "custom_repo"
+
+      - name: Update and install feeds
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Configure firmware image
+        run: |
+          mv custom_repo/${{ env.CONFIG_FILE }} .config
+          make defconfig -j$(nproc)
+
+      - name: Append CONFIG_RELR=y to target/linux/qualcommax/config-6.6
+        run: echo "CONFIG_RELR=y" >> target/linux/qualcommax/config-6.6
+
+      - name: Include custom files
+        run: |
+          mkdir -p ${{ env.CUSTOM_FILES_PATH }}
+          mv custom_repo/${{ env.CUSTOM_FILES_PATH }}* ${{ env.CUSTOM_FILES_PATH }}
+
+      - name: Download dependencies
+        run: make download V=s -j$(nproc)
+
+      - name: Build the firmware image
+        run: make world V=s -j$(nproc)
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipq807x-images
+          path: bin/targets/qualcommax/ipq807x
+
+  release:
+    name: Create release
+    needs: [build, check_commits]
+    if: needs.build.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ipq807x-images
+          path: firmware
+      - name: Display structure of downloaded files
+        run: ls -R
+      - name: Get current date
+        run: echo "RELEASE_DATE=$(date +%F)" >> $GITHUB_ENV
+      - name: Create release
+        uses: softprops/action-gh-release@master
+        with:
+          files: firmware/*
+          tag_name: ${{ env.RELEASE_PREFIX }}-${{ env.RELEASE_DATE }}
+          name: Updated prebuilt images ${{ env.RELEASE_DATE }}
+          body: |
+            Updated prebuilt images for ${{ env.RELEASE_DATE }}
+            Build Commit: ${{ needs.check_commits.outputs.latest_commit_sha }}
+            NSS Packages Commit: ${{ needs.check_commits.outputs.nss_packages_repo_latest_commit_sha }}
+      - name: Clean up old releases
+        uses: dev-drprasad/delete-older-releases@master
+        with:
+          keep_latest: 2
+          delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
