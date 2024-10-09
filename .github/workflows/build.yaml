@@ -11,7 +11,7 @@ env:
   REMOTE_BRANCH: qualcommax-6.x-nss-wifi
   CONFIG_FILE: ax3600.config
   CUSTOM_FILES_PATH: files/
-  RELEASE_PREFIX: qualcommax-6.x-nss-ath11k-2.12
+  RELEASE_PREFIX: qualcommax-6.x-nss-wifi
   NSS_PACKAGES_REPOSITORY: qosmio/nss-packages
   NSS_PACKAGES_REPOSITORY_BRANCH: NSS-12.5-K6.x
 
