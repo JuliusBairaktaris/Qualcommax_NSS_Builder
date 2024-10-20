@@ -35,12 +35,13 @@ set wireless.radio1.channel='auto'
 set wireless.radio1.country='DE'
 
 # Firewall settings
-set firewall.@defaults[0].flow_offloading='0'
+set network.@device[0].flow_offloading='0'
+set network.@device[0].flow_offloading_hw='0'
 set firewall.@zone[1].input='DROP'
 set firewall.@zone[1].forward='DROP'
 
 # Network settings
-set network.globals.packet_steering='0'
+set network.@device[0].packet_steering='0'
 set network.@device[0].igmp_snooping='1'
 set network.@device[0].multicast_querier='1'
 
