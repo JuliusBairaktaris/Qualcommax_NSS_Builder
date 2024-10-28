@@ -5,9 +5,6 @@ set pbuf.opt.memory_profile='1gb'
 set pbuf.opt.scaling_governor='performance'
 
 # Wireless default settings for radio0
-set wireless.default_radio0.dtim_period='1'
-set wireless.default_radio0.max_inactivity='86400'
-set wireless.default_radio0.disassoc_low_ack='0'
 set wireless.default_radio0.wnm_sleep_mode='1'
 set wireless.default_radio0.ieee80211k='1'
 set wireless.default_radio0.time_advertisement='2'
@@ -20,9 +17,6 @@ set wireless.radio0.channel='auto'
 set wireless.radio0.country='DE'
 
 # Wireless default settings for radio1
-set wireless.default_radio1.dtim_period='1'
-set wireless.default_radio1.max_inactivity='86400'
-set wireless.default_radio1.disassoc_low_ack='0'
 set wireless.default_radio1.wnm_sleep_mode='1'
 set wireless.default_radio1.ieee80211k='1'
 set wireless.default_radio1.time_advertisement='2'
@@ -44,9 +38,6 @@ set network.@device[0].igmp_snooping='1'
 set network.@device[0].multicast_querier='1'
 set network.@device[0].flow_offloading='0'
 set network.@device[0].flow_offloading_hw='0'
-
-# ECM settings
-set ecm.@general[0].enable_bridge_filtering='0'
 
 # uHTTPd settings
 set uhttpd.main.redirect_https='1'
