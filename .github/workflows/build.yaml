@@ -7,7 +7,7 @@ on:
     - cron: "0 */2 * * *"
 
 env:
-  REMOTE_REPOSITORY: qosmio/openwrt-ipq
+  REMOTE_REPOSITORY: adarshahd/openwrt-ipq
   REMOTE_BRANCH: 24.10-nss
   CONFIG_FILE: aw1000.config
   CUSTOM_FILES_PATH: files/
