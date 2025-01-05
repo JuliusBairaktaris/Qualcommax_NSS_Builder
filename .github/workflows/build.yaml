@@ -72,6 +72,7 @@ jobs:
       - name: Configure firmware image
         run: |
           mv ${{ env.CONFIG_FILE }} .config
+          echo "CONFIG_TARGET_qualcommax_ipq807x_DEVICE_arcadyan_aw1000=y" >> .config
           make defconfig -j$(nproc)
 
       - name: Include custom files
