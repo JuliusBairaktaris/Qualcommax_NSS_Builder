@@ -9,7 +9,7 @@ on:
 env:
   REMOTE_REPOSITORY: adarshahd/openwrt-ipq
   REMOTE_BRANCH: 24.10-nss
-  CONFIG_FILE: aw1000.config
+  CONFIG_FILE: nss-setup/config-nss.seed
   CUSTOM_FILES_PATH: files/
   RELEASE_PREFIX: main-nss
   NSS_PACKAGES_REPOSITORY: qosmio/nss-packages
@@ -73,9 +73,6 @@ jobs:
         run: |
           mv custom_repo/${{ env.CONFIG_FILE }} .config
           make defconfig -j$(nproc)
-
-      - name: Append CONFIG_RELR=y to target/linux/qualcommax/config-6.6
-        run: echo "CONFIG_RELR=y" >> target/linux/qualcommax/config-6.6
 
       - name: Include custom files
         run: |
