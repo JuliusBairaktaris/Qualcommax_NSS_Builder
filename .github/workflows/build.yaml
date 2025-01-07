@@ -110,7 +110,7 @@ jobs:
       - name: Get current date
         run: echo "RELEASE_DATE=$(date +%F)" >> $GITHUB_ENV
       - name: Create release
-        uses: softprops/action-gh-release@master
+        uses: softprops/action-gh-release@v2.1.0
         with:
           files: firmware/*
           tag_name: ${{ env.RELEASE_PREFIX }}-${{ env.RELEASE_DATE }}
