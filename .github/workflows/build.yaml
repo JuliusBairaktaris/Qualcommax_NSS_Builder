@@ -28,24 +28,18 @@ jobs:
       - name: Check for new commits in both repositories
         id: check_commits
         run: |
-          # Get latest commits from both repos
-          latest_commit_sha=$(gh api repos/${{ env.REMOTE_REPOSITORY }}/commits?sha=${{ env.REMOTE_BRANCH }}&per_page=1 --jq '.[0].sha')
-          nss_packages_repo_latest_commit_sha=$(gh api repos/${{ env.NSS_PACKAGES_REPOSITORY }}/commits?sha=${{ env.NSS_PACKAGES_REPOSITORY_BRANCH }}&per_page=1 --jq '.[0].sha')
+          # Fetch latest commits and release info
+          latest_sha=$(gh api "repos/${{ env.REMOTE_REPOSITORY }}/commits/${{ env.REMOTE_BRANCH }}" --jq .sha)
+          packages_sha=$(gh api "repos/${{ env.NSS_PACKAGES_REPOSITORY }}/commits/${{ env.NSS_PACKAGES_REPOSITORY_BRANCH }}" --jq .sha)
+          release_body=$(gh api "repos/${{ github.repository }}/releases/latest" --jq .body)
 
-          # Get latest release body
-          release_body=$(gh api repos/${{ github.repository }}/releases/latest --jq '.body')
-
-          # Debug output
-          echo "Latest commit SHA from remote repo: $latest_commit_sha"
-          echo "Latest commit SHA from NSS packages repo: $nss_packages_repo_latest_commit_sha"
-          echo "Found SHA in release body: $(echo "$release_body" | grep -o "$latest_commit_sha" || echo "NOT FOUND")"
-          echo "Found packages SHA in release body: $(echo "$release_body" | grep -o "$nss_packages_repo_latest_commit_sha" || echo "NOT FOUND")"
-
-          # Check if commits are in release body
-          echo "new_commits=$([[ "$release_body" != *"$latest_commit_sha"* ]] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
-          echo "latest_commit_sha=$latest_commit_sha" >> $GITHUB_OUTPUT
-          echo "nss_packages_repo_new_commits=$([[ "$release_body" != *"$nss_packages_repo_latest_commit_sha"* ]] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
-          echo "nss_packages_repo_latest_commit_sha=$nss_packages_repo_latest_commit_sha" >> $GITHUB_OUTPUT
+          # Set outputs
+          {
+            echo "latest_commit_sha=$latest_sha"
+            echo "nss_packages_repo_latest_commit_sha=$packages_sha"
+            echo "new_commits=$(if [[ "$release_body" != *"$latest_sha"* ]]; then echo true; else echo false; fi)"
+            echo "nss_packages_repo_new_commits=$(if [[ "$release_body" != *"$packages_sha"* ]]; then echo true; else echo false; fi)"
+          } >> "$GITHUB_OUTPUT"
 
   build:
     name: Build OpenWrt
