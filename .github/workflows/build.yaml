@@ -129,12 +129,12 @@ jobs:
 
             **Build Date:** ${{ env.RELEASE_DATE }}
 
-            ### 🔄 Main Repository Updates
+            ### 🔄 Main Repository
             **Repository:** [${{ env.REMOTE_REPOSITORY }}](https://github.com/${{ env.REMOTE_REPOSITORY }})
             **Branch:** `${{ env.REMOTE_BRANCH }}`
             **Commit:** `${{ needs.check_commits.outputs.latest_commit_sha }}`
 
-            ### 📦 NSS Packages Updates
+            ### 📦 NSS Packages
             **Repository:** [${{ env.NSS_PACKAGES_REPOSITORY }}](https://github.com/${{ env.NSS_PACKAGES_REPOSITORY }})
             **Branch:** `${{ env.NSS_PACKAGES_REPOSITORY_BRANCH }}`
             **Commit:** `${{ needs.check_commits.outputs.nss_packages_repo_latest_commit_sha }}`
