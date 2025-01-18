@@ -141,7 +141,7 @@ jobs:
 
             ### 📝 Build Information
             - **Target:** Xiaomi Mi AIoT Router AX3600
-            - **Configuration:** `${{ env.CONFIG_FILE }}`
+            - **Configuration:** [`${{ env.CONFIG_FILE }}`](${{ env.CONFIG_FILE }})
 
             ### 📋 Notes
             - Automated build triggered by ${{ github.event_name }}
