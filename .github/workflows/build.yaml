@@ -35,6 +35,12 @@ jobs:
           packages_sha=$(gh api "repos/${{ env.NSS_PACKAGES_REPOSITORY }}/commits/${{ env.NSS_PACKAGES_REPOSITORY_BRANCH }}" --jq .sha)
           release_body=$(gh api "repos/${{ github.repository }}/releases/latest" --jq .body)
 
+          # Debug output
+          echo "Latest upstream commit: $latest_sha"
+          echo "Latest packages commit: $packages_sha"
+          echo "Release body contains latest base commit: $(echo "$release_body" | grep -q "$latest_sha" && echo "Yes" || echo "No")"
+          echo "Release body contains latest packages commit: $(echo "$release_body" | grep -q "$packages_sha" && echo "Yes" || echo "No")"
+
           # Set outputs
           {
             echo "latest_commit_sha=$latest_sha"
