@@ -18,6 +18,7 @@ env:
 jobs:
   check_commits:
     name: Check for new commits
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-24.04
     outputs:
       new_commits: ${{ steps.check_commits.outputs.new_commits }}
@@ -52,7 +53,7 @@ jobs:
   build:
     name: Build OpenWrt
     needs: check_commits
-    if: needs.check_commits.outputs.new_commits == 'true' || needs.check_commits.outputs.nss_packages_repo_new_commits == 'true' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.check_commits.outputs.new_commits == 'true' || needs.check_commits.outputs.nss_packages_repo_new_commits == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Install dependencies
