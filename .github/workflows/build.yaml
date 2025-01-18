@@ -55,9 +55,8 @@ jobs:
     needs: [check_commits]
     if: >
       github.event_name != 'schedule' ||
-      (github.event_name == 'schedule' && 
-       (needs.check_commits.outputs.new_commits == 'true' || 
-        needs.check_commits.outputs.nss_packages_repo_new_commits == 'true'))
+      (github.event_name == 'schedule' && (needs.check_commits.outputs.new_commits == 'true' ||
+      needs.check_commits.outputs.nss_packages_repo_new_commits == 'true'))
     runs-on: ubuntu-24.04
     steps:
       - name: Install dependencies
