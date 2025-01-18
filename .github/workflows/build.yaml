@@ -27,6 +27,8 @@ jobs:
     steps:
       - name: Check for new commits in both repositories
         id: check_commits
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # Fetch latest commits and release info
           latest_sha=$(gh api "repos/${{ env.REMOTE_REPOSITORY }}/commits/${{ env.REMOTE_BRANCH }}" --jq .sha)
