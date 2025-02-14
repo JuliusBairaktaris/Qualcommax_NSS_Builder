@@ -1,6 +1,4 @@
 uci -q batch << EOI
-# Set pbuf options
-set pbuf.opt.memory_profile='1gb'
 
 # Wireless default settings for radio0
 set wireless.default_radio0.wnm_sleep_mode='1'
