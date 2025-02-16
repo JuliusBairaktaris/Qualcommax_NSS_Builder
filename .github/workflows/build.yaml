@@ -81,7 +81,20 @@ jobs:
       - name: Checkout current repository
         uses: actions/checkout@v4
         with:
-          path: "custom_repo"
+          path: "builder_repo"
+
+      - name: Add custom patches
+        run: |
+          if [ "$(ls builder_repo/patches)" ]; then
+            mv builder_repo/patches/* ./
+            for patch in *.patch; do
+              git apply --verbose "$patch"
+              echo "=== Diff after applying $patch ==="
+              git diff HEAD
+            done
+            echo "Changed files after patch application:"
+            git status
+          fi
 
       - name: Update and install feeds
         run: |
@@ -90,13 +103,13 @@ jobs:
 
       - name: Configure firmware image
         run: |
-          mv custom_repo/${{ env.CONFIG_FILE }} .config
+          mv builder_repo/${{ env.CONFIG_FILE }} .config
           make defconfig -j$(nproc)
 
       - name: Include custom files
         run: |
           mkdir -p ${{ env.CUSTOM_FILES_PATH }}
-          mv custom_repo/${{ env.CUSTOM_FILES_PATH }}* ${{ env.CUSTOM_FILES_PATH }}
+          mv builder_repo/${{ env.CUSTOM_FILES_PATH }}* ${{ env.CUSTOM_FILES_PATH }}
 
       - name: Download dependencies
         run: make download V=s -j$(nproc)
