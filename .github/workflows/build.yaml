@@ -1,5 +1,9 @@
 name: Build OpenWrt for specific target and release
 
+permissions:
+  contents: write
+  actions: write
+
 on:
   workflow_dispatch:
   push:
@@ -175,4 +179,4 @@ jobs:
           keep_latest: 2
           delete_tags: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
