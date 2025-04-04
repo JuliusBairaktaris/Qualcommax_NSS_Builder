@@ -31,7 +31,7 @@ set firewall.@zone[1].input='DROP'
 set firewall.@zone[1].forward='DROP'
 
 # Network settings
-set network.@device[0].packet_steering='0'
+set network.globals.packet_steering='0'
 set network.@device[0].flow_offloading='0'
 set network.@device[0].flow_offloading_hw='0'
 
