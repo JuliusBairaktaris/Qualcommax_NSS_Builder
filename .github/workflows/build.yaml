@@ -123,10 +123,10 @@ jobs:
           mv builder_repo/${{ env.CUSTOM_FILES_PATH }}* ${{ env.CUSTOM_FILES_PATH }}
 
       - name: Download dependencies
-        run: make download V=s -j$(nproc)
+        run: make download -j$(nproc)
 
       - name: Build the firmware image
-        run: make world V=s -j$(nproc)
+        run: make world -j$(nproc)
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
