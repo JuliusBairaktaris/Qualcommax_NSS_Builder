@@ -34,36 +34,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Fetch latest commits and release info
           latest_sha=$(gh api "repos/${{ env.REMOTE_REPOSITORY }}/commits/${{ env.REMOTE_BRANCH }}" --jq .sha)
           packages_sha=$(gh api "repos/${{ env.NSS_PACKAGES_REPOSITORY }}/commits/${{ env.NSS_PACKAGES_REPOSITORY_BRANCH }}" --jq .sha)
-          release_body=$(gh api "repos/${{ github.repository }}/releases/latest" --jq .body || echo "")
+          release_body=$(gh api "repos/${{ github.repository }}/releases/latest" --jq .body 2>/dev/null || echo "")
 
-          # Debug output
-          echo "Latest upstream commit: $latest_sha"
-          echo "Latest packages commit: $packages_sha"
-
-          # Default to assuming new commits if no release body exists
-          new_commits="true"
-          nss_new_commits="true"
-
-          if [ -n "$release_body" ]; then
-            echo "Release body found. Checking SHAs..."
-            if [[ "$release_body" == *"$latest_sha"* ]]; then
-              new_commits="false"
-              echo "Release body contains latest base commit: Yes"
-            else
-               echo "Release body contains latest base commit: No"
-            fi
-            if [[ "$release_body" == *"$packages_sha"* ]]; then
-              nss_new_commits="false"
-               echo "Release body contains latest packages commit: Yes"
-            else
-               echo "Release body contains latest packages commit: No"
-            fi
-          else
-            echo "No previous release body found, assuming new commits."
-          fi
+          new_commits=$([[ "$release_body" == *"$latest_sha"* ]] && echo "false" || echo "true")
+          nss_new_commits=$([[ "$release_body" == *"$packages_sha"* ]] && echo "false" || echo "true")
 
           echo "new_commits=$new_commits" >> "$GITHUB_OUTPUT"
           echo "latest_commit_sha=$latest_sha" >> "$GITHUB_OUTPUT"
@@ -77,18 +53,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            build-essential clang flex bison g++ gawk \
-            gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev \
-            python3-setuptools rsync swig unzip zlib1g-dev file wget
-          sudo apt full-upgrade -y
+        run: sudo apt update && sudo apt install -y build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev python3-setuptools rsync swig unzip zlib1g-dev file wget && sudo apt full-upgrade -y
       - name: Checkout remote repository
         uses: actions/checkout@v4
         with:
           repository: ${{ env.REMOTE_REPOSITORY }}
           ref: ${{ env.REMOTE_BRANCH }}
+
       - name: Checkout current repository
         uses: actions/checkout@v4
         with:
@@ -96,37 +67,27 @@ jobs:
 
       - name: Add custom patches
         run: |
-          if [ "$(ls builder_repo/patches)" ]; then
+          if [ -d "builder_repo/patches" ] && [ "$(ls -A builder_repo/patches 2>/dev/null)" ]; then
             mv builder_repo/patches/* ./
             for patch in *.patch; do
-              git apply --verbose "$patch"
-              echo "=== Diff after applying $patch ==="
-              git diff HEAD
+              [ -f "$patch" ] && git apply --verbose "$patch"
             done
-            echo "Changed files after patch application:"
-            git status
           fi
 
       - name: Update and install feeds
-        run: |
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+        run: ./scripts/feeds update -a && ./scripts/feeds install -a
 
-      - name: Configure firmware image
+      - name: Setup configuration and custom files
         run: |
           mv builder_repo/${{ env.CONFIG_FILE }} .config
           make defconfig -j$(nproc)
-
-      - name: Include custom files
-        run: |
           mkdir -p ${{ env.CUSTOM_FILES_PATH }}
-          mv builder_repo/${{ env.CUSTOM_FILES_PATH }}* ${{ env.CUSTOM_FILES_PATH }}
+          [ -d "builder_repo/${{ env.CUSTOM_FILES_PATH }}" ] && mv builder_repo/${{ env.CUSTOM_FILES_PATH }}* ${{ env.CUSTOM_FILES_PATH }} || true
 
-      - name: Download dependencies
-        run: make download -j$(nproc)
-
-      - name: Build the firmware image
-        run: make world -j$(nproc)
+      - name: Build firmware
+        run: |
+          make download -j$(nproc) V=s
+          make -j$(nproc) || make -j1 V=s  # Retry single-threaded on failure
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -145,11 +106,9 @@ jobs:
         with:
           name: ipq807x-images
           path: firmware
-      - name: Display structure of downloaded files
-        run: ls -R
-      - name: Get current date
+      - name: Set release date
         run: echo "RELEASE_DATE=$(date +%F)" >> $GITHUB_ENV
-      - name: Create release
+      - name: Publish release
         uses: softprops/action-gh-release@master
         with:
           files: firmware/*
@@ -181,9 +140,9 @@ jobs:
             _Generated by GitHub Actions 🤖_
 
       - name: Clean up old releases
-        uses: dev-drprasad/delete-older-releases@master
-        with:
-          keep_latest: 2
-          delete_tags: true
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/releases --paginate --jq '.[2:] | .[] | "\(.id) \(.tag_name)"' | while read id tag; do
+            gh api -X DELETE "repos/${{ github.repository }}/releases/$id" && gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" 2>/dev/null || true
+          done
