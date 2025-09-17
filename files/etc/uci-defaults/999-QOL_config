@@ -38,7 +38,4 @@ set network.@device[0].flow_offloading_hw='0'
 # uHTTPd settings
 set uhttpd.main.redirect_https='1'
 
-# BanIP settings
-add_list banip.global.ban_feed='doh'
-
 EOI
