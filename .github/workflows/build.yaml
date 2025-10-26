@@ -89,7 +89,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: ${{ env.REMOTE_REPOSITORY }}
-          ref: ${{ env.REMOTE_BRANCH }}
+          ref: ${{ env.MAIN_SHA }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -107,6 +107,7 @@ jobs:
 
           config_hash=$(sha256sum "builder_repo/${CONFIG_FILE}" | cut -d' ' -f1)
           patch_hash="none"
+          custom_hash="none"
 
           if compgen -G 'builder_repo/patches/*.patch' >/dev/null; then
             patch_hash=$(find builder_repo/patches -maxdepth 1 -type f -name '*.patch' -print0 \
@@ -116,15 +117,25 @@ jobs:
               | cut -d' ' -f1)
           fi
 
+          if [ -d "builder_repo/${CUSTOM_FILES_PATH}" ] && [ -n "$(find "builder_repo/${CUSTOM_FILES_PATH}" -type f -printf '.' -quit)" ]; then
+            custom_hash=$(find "builder_repo/${CUSTOM_FILES_PATH}" -type f -print0 \
+              | sort -z \
+              | xargs -0 sha256sum \
+              | sha256sum \
+              | cut -d' ' -f1)
+          fi
+
           printf 'config_hash=%s\n' "$config_hash" >> "$GITHUB_OUTPUT"
           printf 'patch_hash=%s\n' "$patch_hash" >> "$GITHUB_OUTPUT"
+          printf 'custom_hash=%s\n' "$custom_hash" >> "$GITHUB_OUTPUT"
 
       - name: Restore downloads cache
         uses: actions/cache@v4
         with:
           path: dl
-          key: downloads-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
+          key: downloads-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-${{ steps.cache-key.outputs.custom_hash }}
           restore-keys: |
+            downloads-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-
             downloads-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-
             downloads-${{ runner.os }}-
 
@@ -134,14 +145,15 @@ jobs:
           path: |
             build_dir
             staging_dir
-          key: build-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}
+          key: build-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-${{ steps.cache-key.outputs.custom_hash }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}
 
       - name: Restore ccache data
         uses: actions/cache@v4
         with:
           path: .ccache
-          key: ccache-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
+          key: ccache-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-${{ steps.cache-key.outputs.custom_hash }}
           restore-keys: |
+            ccache-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-
             ccache-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-
             ccache-${{ runner.os }}-
 
@@ -248,12 +260,13 @@ jobs:
         run: |
           set -euo pipefail
           echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+          echo "timestamp=$(date -u +%Y%m%dT%H%M%SZ)" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090
         with:
           files: firmware/*
-          tag_name: ${{ env.RELEASE_PREFIX }}-${{ steps.meta.outputs.date }}
+          tag_name: ${{ env.RELEASE_PREFIX }}-${{ steps.meta.outputs.timestamp }}-${{ github.run_id }}
           name: OpenWrt Build ${{ steps.meta.outputs.date }}
           body: |
             ## OpenWrt Automated Build
