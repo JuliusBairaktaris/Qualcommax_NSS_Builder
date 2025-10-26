@@ -139,12 +139,19 @@ jobs:
             downloads-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-
             downloads-${{ runner.os }}-
 
-      - name: Restore build cache
+      - name: Restore toolchain cache
         uses: actions/cache@v4
         with:
-          path: |
-            build_dir
-            staging_dir
+          path: staging_dir
+          key: toolchain-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ env.MAIN_SHA }}
+          restore-keys: |
+            toolchain-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-
+            toolchain-${{ runner.os }}-
+
+      - name: Restore build objects cache
+        uses: actions/cache@v4
+        with:
+          path: build_dir
           key: build-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-${{ steps.cache-key.outputs.custom_hash }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}
 
       - name: Restore ccache data
