@@ -123,9 +123,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: dl
-          key: downloads-${{ runner.os }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
+          key: downloads-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
           restore-keys: |
-            downloads-${{ runner.os }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}-
+            downloads-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-
             downloads-${{ runner.os }}-
 
       - name: Restore build cache
@@ -135,18 +135,18 @@ jobs:
             build_dir
             staging_dir
             tmp
-          key: build-${{ runner.os }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
+          key: build-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
           restore-keys: |
-            build-${{ runner.os }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}-
+            build-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-
             build-${{ runner.os }}-
 
       - name: Restore ccache data
         uses: actions/cache@v4
         with:
           path: .ccache
-          key: ccache-${{ runner.os }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
+          key: ccache-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}-
+            ccache-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-
             ccache-${{ runner.os }}-
 
       - name: Configure ccache
