@@ -208,6 +208,10 @@ jobs:
         run: |
           set -euo pipefail
 
+          log_dir=$(mktemp -d)
+          export CCACHE_LOGFILE="${log_dir}/ccache.log"
+          echo "CCACHE_LOGFILE=${CCACHE_LOGFILE}" >> "$GITHUB_ENV"
+
           # Derive a stable build timestamp from the checked-out OpenWrt commit.
           main_epoch=$(git show -s --format=%ct "${MAIN_SHA:-HEAD}")
           export SOURCE_DATE_EPOCH="$main_epoch"
@@ -227,6 +231,14 @@ jobs:
         run: |
           set -euo pipefail
           ccache -s
+
+      - name: Upload ccache log
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: ccache-log-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.CCACHE_LOGFILE != '' && env.CCACHE_LOGFILE || '/tmp/ccache.log' }}
+          if-no-files-found: ignore
 
       - name: Upload images
         uses: actions/upload-artifact@v5
