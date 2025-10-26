@@ -29,6 +29,7 @@ env:
   NSS_PACKAGES_REPOSITORY_BRANCH: NSS-12.5-K6.x
   ARTIFACT_RETENTION_DAYS: 7
   RELEASES_TO_KEEP: 2
+  USE_CCACHE: 1
 
 jobs:
   detect-updates:
@@ -73,12 +74,15 @@ jobs:
     permissions:
       contents: read
       actions: read
+    env:
+      MAIN_SHA: ${{ needs.detect-updates.outputs.main_sha }}
+      NSS_SHA: ${{ needs.detect-updates.outputs.nss_sha }}
     steps:
       - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git \
+            build-essential ccache clang flex bison g++ gawk gcc-multilib g++-multilib gettext git \
             libncurses5-dev libssl-dev python3-setuptools rsync swig unzip zlib1g-dev file wget
 
       - name: Checkout OpenWrt source
@@ -95,6 +99,68 @@ jobs:
           path: builder_repo
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Compute cache fingerprint
+        id: cache-key
+        run: |
+          set -euo pipefail
+
+          config_hash=$(sha256sum "builder_repo/${CONFIG_FILE}" | cut -d' ' -f1)
+          patch_hash="none"
+
+          if compgen -G 'builder_repo/patches/*.patch' >/dev/null; then
+            patch_hash=$(find builder_repo/patches -maxdepth 1 -type f -name '*.patch' -print0 \
+              | sort -z \
+              | xargs -0 sha256sum \
+              | sha256sum \
+              | cut -d' ' -f1)
+          fi
+
+          printf 'config_hash=%s\n' "$config_hash" >> "$GITHUB_OUTPUT"
+          printf 'patch_hash=%s\n' "$patch_hash" >> "$GITHUB_OUTPUT"
+
+      - name: Restore downloads cache
+        uses: actions/cache@v4
+        with:
+          path: dl
+          key: downloads-${{ runner.os }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
+          restore-keys: |
+            downloads-${{ runner.os }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}-
+            downloads-${{ runner.os }}-
+
+      - name: Restore build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build_dir
+            staging_dir
+            tmp
+          key: build-${{ runner.os }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
+          restore-keys: |
+            build-${{ runner.os }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}-
+            build-${{ runner.os }}-
+
+      - name: Restore ccache data
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}-
+            ccache-${{ runner.os }}-
+
+      - name: Configure ccache
+        run: |
+          set -euo pipefail
+          mkdir -p .ccache
+          echo "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=3G" >> "$GITHUB_ENV"
+          echo "CCACHE_COMPRESS=1" >> "$GITHUB_ENV"
+
+      - name: Pre-build ccache statistics
+        run: |
+          set -euo pipefail
+          ccache -s || true
 
       - name: Apply custom patches
         run: |
@@ -118,6 +184,7 @@ jobs:
 
           cp "builder_repo/${CONFIG_FILE}" .config
           make defconfig
+          make defconfig
 
           if [ -d "builder_repo/${CUSTOM_FILES_PATH}" ]; then
             mkdir -p "${CUSTOM_FILES_PATH}"
@@ -132,6 +199,12 @@ jobs:
           if ! make -j"$(nproc)"; then
             make -j1 V=s
           fi
+
+      - name: ccache statistics
+        if: always()
+        run: |
+          set -euo pipefail
+          ccache -s
 
       - name: Upload images
         uses: actions/upload-artifact@v5
