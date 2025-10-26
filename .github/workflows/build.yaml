@@ -134,7 +134,6 @@ jobs:
           path: |
             build_dir
             staging_dir
-            tmp
           key: build-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
           restore-keys: |
             build-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-
