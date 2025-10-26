@@ -134,10 +134,7 @@ jobs:
           path: |
             build_dir
             staging_dir
-          key: build-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}
-          restore-keys: |
-            build-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-
-            build-${{ runner.os }}-
+          key: build-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}
 
       - name: Restore ccache data
         uses: actions/cache@v4
@@ -152,9 +149,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .ccache
-          echo "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache" >> "$GITHUB_ENV"
-          echo "CCACHE_MAXSIZE=3G" >> "$GITHUB_ENV"
-          echo "CCACHE_COMPRESS=1" >> "$GITHUB_ENV"
+          {
+            echo "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache"
+            echo "CCACHE_MAXSIZE=3G"
+            echo "CCACHE_COMPRESS=1"
+            echo "CCACHE_BASEDIR=${GITHUB_WORKSPACE}"
+            echo "CCACHE_NOHASHDIR=1"
+            echo "CCACHE_COMPILERCHECK=content"
+          } >> "$GITHUB_ENV"
 
       - name: Pre-build ccache statistics
         run: |
@@ -193,6 +195,15 @@ jobs:
       - name: Build firmware
         run: |
           set -euo pipefail
+
+          # Derive a stable build timestamp from the checked-out OpenWrt commit.
+          main_epoch=$(git show -s --format=%ct "${MAIN_SHA:-HEAD}")
+          export SOURCE_DATE_EPOCH="$main_epoch"
+          export TZ=UTC
+          export LC_ALL=C
+          export KBUILD_BUILD_USER=builder
+          export KBUILD_BUILD_HOST=github
+          export CCACHE_BASEDIR="${CCACHE_BASEDIR:-$GITHUB_WORKSPACE}"
 
           make download -j"$(nproc)" V=s
           if ! make -j"$(nproc)"; then
