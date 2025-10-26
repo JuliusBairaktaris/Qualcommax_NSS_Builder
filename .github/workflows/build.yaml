@@ -82,7 +82,7 @@ jobs:
             libncurses5-dev libssl-dev python3-setuptools rsync swig unzip zlib1g-dev file wget
 
       - name: Checkout OpenWrt source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.REMOTE_REPOSITORY }}
           ref: ${{ env.REMOTE_BRANCH }}
@@ -90,7 +90,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout builder assets
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: builder_repo
           fetch-depth: 0
@@ -134,7 +134,7 @@ jobs:
           fi
 
       - name: Upload images
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ipq807x-images
           path: bin/targets/qualcommax/ipq807x
@@ -155,7 +155,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: ipq807x-images
           path: firmware
