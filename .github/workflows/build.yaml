@@ -170,7 +170,7 @@ jobs:
           mkdir -p .ccache
           {
             echo "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache"
-            echo "CCACHE_MAXSIZE=3G"
+            echo "CCACHE_MAXSIZE=8G"
             echo "CCACHE_COMPRESS=1"
             echo "CCACHE_BASEDIR=${GITHUB_WORKSPACE}"
             echo "CCACHE_NOHASHDIR=1"
