@@ -175,6 +175,7 @@ jobs:
             echo "CCACHE_BASEDIR=${GITHUB_WORKSPACE}"
             echo "CCACHE_NOHASHDIR=1"
             echo "CCACHE_COMPILERCHECK=content"
+            echo "CCACHE_SLOPPINESS=time_macros,include_file_mtime"
           } >> "$GITHUB_ENV"
 
       - name: Pre-build ccache statistics
