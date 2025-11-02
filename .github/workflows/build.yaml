@@ -205,7 +205,6 @@ jobs:
 
           cp "builder_repo/${CONFIG_FILE}" .config
           make defconfig
-          make defconfig
 
           if [ -d "builder_repo/${CUSTOM_FILES_PATH}" ]; then
             mkdir -p "${CUSTOM_FILES_PATH}"
