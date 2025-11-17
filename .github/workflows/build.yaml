@@ -68,7 +68,7 @@ jobs:
   build:
     name: Build image
     needs: detect-updates
-    if: needs.detect-updates.outputs.build_required == 'true'
+    if: needs.detect-updates.outputs.build_required == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     permissions:
@@ -293,7 +293,18 @@ jobs:
             - NSS packages commit: `${{ needs.detect-updates.outputs.nss_sha }}`
             - Trigger: `${{ github.event_name }}`
 
-      - name: Prune old releases
+  prune-releases:
+    name: Prune old releases
+    needs: release
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Delete releases and tags beyond retention
         run: |
           set -euo pipefail
           keep="${RELEASES_TO_KEEP:-2}"
