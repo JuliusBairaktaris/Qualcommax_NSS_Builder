@@ -10,7 +10,7 @@ set wireless.default_radio0.ocv='1'
 
 # Wireless radio0 specific settings
 set wireless.radio0.htmode='HE160'
-set wireless.radio0.channel='auto'
+set wireless.radio0.channel='36'
 set wireless.radio0.country='DE'
 
 # Wireless default settings for radio1
@@ -23,7 +23,7 @@ set wireless.default_radio1.ocv='1'
 
 # Wireless radio1 specific settings
 set wireless.radio1.htmode='HE40'
-set wireless.radio1.channel='auto'
+set wireless.radio1.channel='1'
 set wireless.radio1.country='DE'
 
 # Firewall settings
