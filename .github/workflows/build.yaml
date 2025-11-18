@@ -282,7 +282,7 @@ jobs:
           echo "timestamp=$(date -u +%Y%m%dT%H%M%SZ)" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub release
-        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090
+        uses: softprops/action-gh-release@v2
         with:
           files: firmware/*
           tag_name: ${{ env.RELEASE_PREFIX }}-${{ steps.meta.outputs.timestamp }}-${{ github.run_id }}
