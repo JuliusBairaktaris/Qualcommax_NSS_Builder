@@ -3,8 +3,7 @@ name: OpenWrt Build
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
   schedule:
     - cron: "0 */2 * * *"
 
@@ -20,16 +19,21 @@ defaults:
     shell: bash
 
 env:
+  # === Repository Config ===
   REMOTE_REPOSITORY: qosmio/openwrt-ipq
   REMOTE_BRANCH: main-nss
-  CONFIG_FILE: ax3600.config
-  CUSTOM_FILES_PATH: files
-  RELEASE_PREFIX: main-nss
   NSS_PACKAGES_REPOSITORY: qosmio/nss-packages
   NSS_PACKAGES_REPOSITORY_BRANCH: NSS-12.5-K6.x
+
+  # === Build Config ===
+  CONFIG_FILE: ax3600.config
+  CUSTOM_FILES_PATH: files
+  USE_CCACHE: 1
+
+  # === Release Config ===
+  RELEASE_PREFIX: main-nss
   ARTIFACT_RETENTION_DAYS: 7
   RELEASES_TO_KEEP: 2
-  USE_CCACHE: 1
 
 jobs:
   detect-updates:
@@ -45,25 +49,30 @@ jobs:
       main_sha: ${{ steps.diff.outputs.main_sha }}
       nss_sha: ${{ steps.diff.outputs.nss_sha }}
     steps:
-      - name: Capture upstream commit SHAs
+      - name: Check for updates
         id: diff
         run: |
           set -euo pipefail
 
+          # Fetch upstream SHAs
           main_sha=$(gh api "repos/${REMOTE_REPOSITORY}/commits/${REMOTE_BRANCH}" --jq .sha)
           nss_sha=$(gh api "repos/${NSS_PACKAGES_REPOSITORY}/commits/${NSS_PACKAGES_REPOSITORY_BRANCH}" --jq .sha)
           latest_release_body=$(gh release view --repo "${GITHUB_REPOSITORY}" --json body --jq .body 2>/dev/null || echo "")
 
+          # Determine if build is required
           build_required=true
-          if [[ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]] && [[ "$latest_release_body" == *"$main_sha"* ]] && [[ "$latest_release_body" == *"$nss_sha"* ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]] && \
+             [[ "$latest_release_body" == *"$main_sha"* ]] && \
+             [[ "$latest_release_body" == *"$nss_sha"* ]]; then
             build_required=false
           fi
 
-          {
-            printf 'build_required=%s\n' "$build_required"
-            printf 'main_sha=%s\n' "$main_sha"
-            printf 'nss_sha=%s\n' "$nss_sha"
-          } >> "$GITHUB_OUTPUT"
+          # Output results
+          cat >> "$GITHUB_OUTPUT" <<EOF
+          build_required=$build_required
+          main_sha=$main_sha
+          nss_sha=$nss_sha
+          EOF
 
   build:
     name: Build image
@@ -78,14 +87,16 @@ jobs:
       MAIN_SHA: ${{ needs.detect-updates.outputs.main_sha }}
       NSS_SHA: ${{ needs.detect-updates.outputs.nss_sha }}
     steps:
-      - name: Install build dependencies
+      # === SETUP ===
+      - name: Install dependencies
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential ccache clang flex bison g++ gawk gcc-multilib g++-multilib gettext git \
             libncurses5-dev libssl-dev python3-setuptools rsync swig unzip zlib1g-dev file wget
 
-      - name: Checkout OpenWrt source
+      - name: Checkout sources
         uses: actions/checkout@v5
         with:
           repository: ${{ env.REMOTE_REPOSITORY }}
@@ -100,106 +111,114 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Compute cache fingerprint
-        id: cache-key
+      # === CACHE CONFIGURATION ===
+      - name: Generate cache keys
+        id: cache-keys
         run: |
           set -euo pipefail
 
+          # Hash the build configuration
           config_hash=$(sha256sum "builder_repo/${CONFIG_FILE}" | cut -d' ' -f1)
+
+          # Hash all patches if they exist
           patch_hash="none"
-          custom_hash="none"
-
           if compgen -G 'builder_repo/patches/*.patch' >/dev/null; then
-            patch_hash=$(find builder_repo/patches -maxdepth 1 -type f -name '*.patch' -print0 \
-              | sort -z \
-              | xargs -0 sha256sum \
-              | sha256sum \
-              | cut -d' ' -f1)
+            patch_hash=$(find builder_repo/patches -maxdepth 1 -type f -name '*.patch' -print0 | \
+              sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
           fi
 
-          if [ -d "builder_repo/${CUSTOM_FILES_PATH}" ] && [ -n "$(find "builder_repo/${CUSTOM_FILES_PATH}" -type f -printf '.' -quit)" ]; then
-            custom_hash=$(find "builder_repo/${CUSTOM_FILES_PATH}" -type f -print0 \
-              | sort -z \
-              | xargs -0 sha256sum \
-              | sha256sum \
-              | cut -d' ' -f1)
+          # Hash custom files if they exist
+          custom_hash="none"
+          if [ -d "builder_repo/${CUSTOM_FILES_PATH}" ] && \
+             [ -n "$(find "builder_repo/${CUSTOM_FILES_PATH}" -type f -printf '.' -quit)" ]; then
+            custom_hash=$(find "builder_repo/${CUSTOM_FILES_PATH}" -type f -print0 | \
+              sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
           fi
 
-          printf 'config_hash=%s\n' "$config_hash" >> "$GITHUB_OUTPUT"
-          printf 'patch_hash=%s\n' "$patch_hash" >> "$GITHUB_OUTPUT"
-          printf 'custom_hash=%s\n' "$custom_hash" >> "$GITHUB_OUTPUT"
+          # Export cache key components
+          cat >> "$GITHUB_OUTPUT" <<EOF
+          config=$config_hash
+          patches=$patch_hash
+          custom=$custom_hash
+          base=${{ runner.os }}-${config_hash}-${patch_hash}-${custom_hash}
+          EOF
 
       - name: Restore downloads cache
         uses: actions/cache@v4
         with:
           path: dl
-          key: downloads-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-${{ steps.cache-key.outputs.custom_hash }}
+          key: downloads-${{ steps.cache-keys.outputs.base }}
           restore-keys: |
-            downloads-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-
-            downloads-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-
+            downloads-${{ steps.cache-keys.outputs.base }}-
             downloads-${{ runner.os }}-
 
       - name: Restore toolchain cache
         uses: actions/cache@v4
         with:
           path: staging_dir
-          key: toolchain-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ env.MAIN_SHA }}
+          key: toolchain-${{ runner.os }}-${{ steps.cache-keys.outputs.config }}-${{ env.MAIN_SHA }}
           restore-keys: |
-            toolchain-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-
+            toolchain-${{ runner.os }}-${{ steps.cache-keys.outputs.config }}-
             toolchain-${{ runner.os }}-
 
       - name: Restore build objects cache
         uses: actions/cache@v4
         with:
           path: build_dir
-          key: build-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-${{ steps.cache-key.outputs.custom_hash }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}
+          key: build-${{ steps.cache-keys.outputs.base }}-${{ env.MAIN_SHA }}-${{ env.NSS_SHA }}
 
-      - name: Restore ccache data
+      - name: Restore ccache
         uses: actions/cache@v4
         with:
           path: .ccache
-          key: ccache-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-${{ steps.cache-key.outputs.custom_hash }}
+          key: ccache-${{ steps.cache-keys.outputs.base }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-${{ steps.cache-key.outputs.patch_hash }}-
-            ccache-${{ runner.os }}-${{ steps.cache-key.outputs.config_hash }}-
+            ccache-${{ steps.cache-keys.outputs.base }}-
             ccache-${{ runner.os }}-
 
-      - name: Configure ccache
+      # === BUILD ===
+      - name: Configure build
         run: |
           set -euo pipefail
+
+          # Ccache setup
           mkdir -p .ccache
-          {
-            echo "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache"
-            echo "CCACHE_MAXSIZE=8G"
-            echo "CCACHE_COMPRESS=1"
-            echo "CCACHE_BASEDIR=${GITHUB_WORKSPACE}"
-            echo "CCACHE_NOHASHDIR=1"
-            echo "CCACHE_COMPILERCHECK=content"
-            echo "CCACHE_SLOPPINESS=time_macros,include_file_mtime"
-          } >> "$GITHUB_ENV"
+          cat >> "$GITHUB_ENV" <<EOF
+          CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache
+          CCACHE_MAXSIZE=8G
+          CCACHE_COMPRESS=1
+          CCACHE_BASEDIR=${GITHUB_WORKSPACE}
+          CCACHE_NOHASHDIR=1
+          CCACHE_COMPILERCHECK=content
+          CCACHE_SLOPPINESS=time_macros,include_file_mtime
+          EOF
 
-      - name: Pre-build ccache statistics
+          # Reproducible build setup
+          main_epoch=$(git show -s --format=%ct "${MAIN_SHA:-HEAD}")
+          cat >> "$GITHUB_ENV" <<EOF
+          SOURCE_DATE_EPOCH=$main_epoch
+          TZ=UTC
+          LC_ALL=C
+          KBUILD_BUILD_USER=builder
+          KBUILD_BUILD_HOST=github
+          EOF
+
+      - name: Apply patches and feeds
         run: |
           set -euo pipefail
-          ccache -s || true
 
-      - name: Apply custom patches
-        run: |
-          set -euo pipefail
-
+          # Apply patches
           if compgen -G 'builder_repo/patches/*.patch' >/dev/null; then
             while IFS= read -r patch; do
               git apply --verbose "$patch"
             done < <(find builder_repo/patches -maxdepth 1 -type f -name '*.patch' | sort)
           fi
 
-      - name: Update and install feeds
-        run: |
-          set -euo pipefail
+          # Install feeds
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Prepare configuration and custom files
+      - name: Prepare configuration
         run: |
           set -euo pipefail
 
@@ -215,28 +234,19 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Setup ccache logging
           log_dir=$(mktemp -d)
           export CCACHE_LOGFILE="${log_dir}/ccache.log"
           echo "CCACHE_LOGFILE=${CCACHE_LOGFILE}" >> "$GITHUB_ENV"
+          ccache -s || true
 
-          # Derive a stable build timestamp from the checked-out OpenWrt commit.
-          main_epoch=$(git show -s --format=%ct "${MAIN_SHA:-HEAD}")
-          export SOURCE_DATE_EPOCH="$main_epoch"
-          export TZ=UTC
-          export LC_ALL=C
-          export KBUILD_BUILD_USER=builder
-          export KBUILD_BUILD_HOST=github
-          export CCACHE_BASEDIR="${CCACHE_BASEDIR:-$GITHUB_WORKSPACE}"
-
+          # Build
           make download -j"$(nproc)" V=s
           if ! make -j"$(nproc)"; then
             make -j1 V=s
           fi
 
-      - name: ccache statistics
-        if: always()
-        run: |
-          set -euo pipefail
+          # Stats
           ccache -s
 
       - name: Upload ccache log
@@ -257,9 +267,7 @@ jobs:
 
   release:
     name: Publish release
-    needs:
-      - detect-updates
-      - build
+    needs: [detect-updates, build]
     if: needs.build.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -268,30 +276,27 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Download build artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v6
         with:
           name: ipq807x-images
           path: firmware
 
-      - name: Compute release metadata
-        id: meta
+      - name: Create release
         run: |
           set -euo pipefail
-          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
-          echo "timestamp=$(date -u +%Y%m%dT%H%M%SZ)" >> "$GITHUB_OUTPUT"
 
-      - name: Publish GitHub release
-        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090
-        with:
-          files: firmware/*
-          tag_name: ${{ env.RELEASE_PREFIX }}-${{ steps.meta.outputs.timestamp }}-${{ github.run_id }}
-          name: OpenWrt Build ${{ steps.meta.outputs.date }}
-          body: |
-            ## OpenWrt Automated Build
-            - Main commit: `${{ needs.detect-updates.outputs.main_sha }}`
-            - NSS packages commit: `${{ needs.detect-updates.outputs.nss_sha }}`
-            - Trigger: `${{ github.event_name }}`
+          date=$(date -u +%F)
+          timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+          tag_name="${RELEASE_PREFIX}-${timestamp}-${GITHUB_RUN_ID}"
+
+          gh release create "$tag_name" \
+            --title "OpenWrt Build $date" \
+            --notes "## OpenWrt Automated Build
+            - Main commit: \`${{ needs.detect-updates.outputs.main_sha }}\`
+            - NSS packages commit: \`${{ needs.detect-updates.outputs.nss_sha }}\`
+            - Trigger: \`${{ github.event_name }}\`" \
+            firmware/*
 
   prune-releases:
     name: Prune old releases
@@ -304,23 +309,21 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Delete releases and tags beyond retention
+      - name: Prune releases
         run: |
           set -euo pipefail
+
           keep="${RELEASES_TO_KEEP:-2}"
           releases_json=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100")
-          # Delete releases older than the configured retention threshold to keep the feed tidy.
+
           mapfile -t old_releases < <(jq -r --argjson keep "$keep" '
-            map(select(.draft | not))
-            | sort_by(.created_at)
-            | reverse
-            | .[$keep:]
-            | .[]
-            | "\(.id) \(.tag_name)"' <<<"$releases_json")
+            map(select(.draft | not)) | sort_by(.created_at) | reverse | .[$keep:] | .[] | "\(.id) \(.tag_name)"
+          ' <<<"$releases_json")
 
           for release in "${old_releases[@]}"; do
             release_id="${release%% *}"
             tag_name="${release#* }"
+            echo "Deleting release $release_id (tag: $tag_name)"
             gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${release_id}"
-            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag_name}" 2>/dev/null || true
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag_name}" || true
           done
