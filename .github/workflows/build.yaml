@@ -117,17 +117,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Hash the build configuration
+          # Calculate hashes
           config_hash=$(sha256sum "builder_repo/${CONFIG_FILE}" | cut -d' ' -f1)
-
-          # Hash all patches if they exist
+          
           patch_hash="none"
           if compgen -G 'builder_repo/patches/*.patch' >/dev/null; then
             patch_hash=$(find builder_repo/patches -maxdepth 1 -type f -name '*.patch' -print0 | \
               sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
           fi
 
-          # Hash custom files if they exist
           custom_hash="none"
           if [ -d "builder_repo/${CUSTOM_FILES_PATH}" ] && \
              [ -n "$(find "builder_repo/${CUSTOM_FILES_PATH}" -type f -printf '.' -quit)" ]; then
@@ -135,7 +133,7 @@ jobs:
               sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
           fi
 
-          # Export cache key components
+          # Export keys
           cat >> "$GITHUB_OUTPUT" <<EOF
           config=$config_hash
           patches=$patch_hash
@@ -314,15 +312,12 @@ jobs:
           set -euo pipefail
 
           keep="${RELEASES_TO_KEEP:-2}"
-          releases_json=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100")
-
-          mapfile -t old_releases < <(jq -r --argjson keep "$keep" '
+          
+          # Fetch and filter releases
+          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" | \
+          jq -r --argjson keep "$keep" '
             map(select(.draft | not)) | sort_by(.created_at) | reverse | .[$keep:] | .[] | "\(.id) \(.tag_name)"
-          ' <<<"$releases_json")
-
-          for release in "${old_releases[@]}"; do
-            release_id="${release%% *}"
-            tag_name="${release#* }"
+          ' | while read -r release_id tag_name; do
             echo "Deleting release $release_id (tag: $tag_name)"
             gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${release_id}"
             gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag_name}" || true
