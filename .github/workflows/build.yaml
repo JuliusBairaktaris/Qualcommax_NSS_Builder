@@ -193,7 +193,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "OpenWrt Build $date" \
             --notes-file release_notes.md \
-            openwrt/bin/targets/qualcommax/ipq807x/*
+            $(find openwrt/bin/targets/qualcommax/ipq807x/ -maxdepth 1 -type f)
 
   cleanup_releases:
     name: Cleanup Old Releases
