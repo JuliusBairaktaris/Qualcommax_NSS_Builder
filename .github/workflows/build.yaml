@@ -125,13 +125,25 @@ jobs:
             done < <(find ../builder_repo/patches -maxdepth 1 -type f -name '*.patch' | sort)
           fi
 
+          # Add custom feed
+          if [ ! -f feeds.conf ]; then
+            cp feeds.conf.default feeds.conf
+          fi
+          echo "src-git qosmio https://github.com/qosmio/packages-extra" >> feeds.conf
+
           # Update and install feeds
+          ./scripts/feeds update qosmio
+          ./scripts/feeds install -a -p qosmio
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
           # Configure
           cp "../builder_repo/${CONFIG_FILE}" .config
           make defconfig
+
+          # Disable bundling custom repos
+          sed -i 's/^CONFIG_FEED_luci_extra=.*/# CONFIG_FEED_luci_extra is not set/' .config
+          sed -i 's/^CONFIG_FEED_qosmio=.*/# CONFIG_FEED_qosmio is not set/' .config
 
           # Add custom files
           if [ -d "../builder_repo/${CUSTOM_FILES_PATH}" ]; then
