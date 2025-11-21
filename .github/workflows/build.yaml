@@ -190,6 +190,7 @@ jobs:
           EOF
 
           gh release create "$tag_name" \
+            --repo "$GITHUB_REPOSITORY" \
             --title "OpenWrt Build $date" \
             --notes-file release_notes.md \
             openwrt/bin/targets/qualcommax/ipq807x/*
