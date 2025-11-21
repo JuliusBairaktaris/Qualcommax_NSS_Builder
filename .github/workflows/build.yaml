@@ -24,7 +24,7 @@ env:
   # Build Configuration
   CONFIG_FILE: ax3600.config
   CUSTOM_FILES_PATH: files
-  
+
   # Release Configuration
   RELEASE_PREFIX: main-nss
   ARTIFACT_RETENTION_DAYS: 7
@@ -52,7 +52,7 @@ jobs:
           # Fetch upstream SHAs
           main_sha=$(gh api "repos/${REMOTE_REPOSITORY}/commits/${REMOTE_BRANCH}" --jq .sha)
           nss_sha=$(gh api "repos/${NSS_PACKAGES_REPOSITORY}/commits/${NSS_PACKAGES_REPOSITORY_BRANCH}" --jq .sha)
-          
+
           # Get latest release body safely
           latest_release_body=$(gh release view --repo "${GITHUB_REPOSITORY}" --json body --jq .body 2>/dev/null || echo "")
 
@@ -154,10 +154,10 @@ jobs:
         working-directory: openwrt
         run: |
           set -euo pipefail
-          
+
           echo "Starting download..."
           make download -j"$(nproc)" V=s
-          
+
           echo "Starting build..."
           if ! make -j"$(nproc)"; then
             echo "Build failed, retrying with single thread for debugging..."
@@ -179,7 +179,7 @@ jobs:
           date=$(date -u +%F)
           timestamp=$(date -u +%Y%m%dT%H%M%SZ)
           tag_name="${RELEASE_PREFIX}-${timestamp}-${GITHUB_RUN_ID}"
-          
+
           # Create release notes
           cat > release_notes.md <<EOF
           ## OpenWrt Automated Build
@@ -211,9 +211,9 @@ jobs:
           set -euo pipefail
 
           keep="${RELEASES_TO_KEEP:-2}"
-          
+
           echo "Keeping last $keep releases..."
-          
+
           # Fetch and filter releases to delete
           gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" | \
           jq -r --argjson keep "$keep" '
