@@ -150,6 +150,11 @@ jobs:
             echo "Adding custom files..."
             mkdir -p "${CUSTOM_FILES_PATH}"
             rsync -a "../builder_repo/${CUSTOM_FILES_PATH}/" "${CUSTOM_FILES_PATH}/"
+
+            # Ensure correct permissions for sshd_config
+            if [ -f "${CUSTOM_FILES_PATH}/etc/ssh/sshd_config" ]; then
+              chmod 0600 "${CUSTOM_FILES_PATH}/etc/ssh/sshd_config"
+            fi
           fi
 
           # Set reproducible build parameters
