@@ -84,6 +84,8 @@ jobs:
     permissions:
       contents: write
       actions: read
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
     env:
       MAIN_SHA: ${{ needs.check_updates.outputs.main_sha }}
       NSS_SHA: ${{ needs.check_updates.outputs.nss_sha }}
@@ -190,12 +192,14 @@ jobs:
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
       - name: Publish release
+        id: release
         run: |
           set -euo pipefail
 
           date=$(date -u +%F)
           timestamp=$(date -u +%Y%m%dT%H%M%SZ)
           tag_name="${RELEASE_PREFIX}-${timestamp}-${GITHUB_RUN_ID}"
+          echo "release_tag=$tag_name" >> "$GITHUB_OUTPUT"
 
           # Create release notes
           cat > release_notes.md <<EOF
@@ -210,7 +214,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "OpenWrt Build $date" \
             --notes-file release_notes.md \
-            $(find openwrt/bin/targets/qualcommax/ipq807x/ -maxdepth 1 -type f)
+            $(find openwrt/bin/targets/qualcommax/ipq807x/ -type f -not -path "*/packages/*")
 
   cleanup_releases:
     name: Cleanup Old Releases
@@ -228,13 +232,17 @@ jobs:
           set -euo pipefail
 
           keep="${RELEASES_TO_KEEP:-2}"
+          current_tag="${{ needs.build_firmware.outputs.release_tag }}"
 
           echo "Keeping last $keep releases..."
+          if [ -n "$current_tag" ]; then
+            echo "Protecting current release: $current_tag"
+          fi
 
           # Fetch and filter releases to delete
           gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" | \
-          jq -r --argjson keep "$keep" '
-            map(select(.draft | not)) | sort_by(.created_at) | reverse | .[$keep:] | .[] | "\(.id) \(.tag_name)"
+          jq -r --argjson keep "$keep" --arg current_tag "$current_tag" '
+            map(select(.draft | not)) | sort_by(.created_at) | reverse | .[$keep:] | .[] | select(.tag_name != $current_tag) | "\(.id) \(.tag_name)"
           ' | while read -r release_id tag_name; do
             echo "Deleting release $release_id (tag: $tag_name)"
             gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${release_id}"
