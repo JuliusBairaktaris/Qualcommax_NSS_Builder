@@ -1,51 +1,72 @@
 # Qualcommax NSS Builder
 
-This project automates the process of building OpenWrt firmware images for the Qualcomm IPQ807x platform, specifically targeting the Xiaomi AX3600 router. The build process incorporates various optimizations, hardening options, and quality-of-life enhancements. 
+**Automated OpenWrt Firmware Builder for Xiaomi AX3600 (IPQ807x)**
 
-## Features
+![Build Status](https://img.shields.io/github/actions/workflow/status/JuliusBairaktaris/Qualcommax_NSS_Builder/build.yaml?style=flat-square)
 
-- Automated build process triggered by new commits in the [remote repository](https://github.com/qosmio/openwrt-ipq) or manual workflow dispatch
-- Compiler optimizations for improved performance
-- Hardening build options for enhanced security
-- SSH configuration with strong algorithms and key exchange methods. Refer to the [`ssh_hardening.config`](files/etc/ssh/sshd_config.d/ssh_hardening.conf)
-- Additional useful packages. Refer to the [`ax3600.config`](ax3600.config)
-- Full NSS (Network Subsystem) support 
-- Quality-of-life enhancements through UCI configuration
+This project provides a fully automated workflow to build optimized, hardened, and feature-rich OpenWrt firmware images for the **Xiaomi AX3600**. It leverages the [Qualcommax Nss Build](https://github.com/qosmio/openwrt-ipq) source, integrating custom enhancements for performance and security.
 
-## Build Process
+---
 
-The build process is automated using GitHub Actions and consists of the following steps:
+## 🚀 Key Features
 
-1. Check for new commits in the [remote repository](https://github.com/qosmio/openwrt-ipq)
-2. Install the necessary dependencies
-3. Checkout the [remote repository](https://github.com/qosmio/openwrt-ipq) and the current repository
-4. Update and install the OpenWrt feeds
-5. Apply the [NSS status patch](patches/999-add-nss-load-to-status.patch) by [qosmio](https://github.com/qosmio)
-6. Configure the firmware image using the provided configuration file
-7. Include SSH hardening configuration and QOL-Enhancements
-8. Build the firmware image
-9. Package the output and upload the artifacts
-10. Create a new release with the updated prebuilt images
+### ⚡ Performance & NSS Offloading
 
-## Configuration
+- **Full NSS Support**: Utilizes the Qualcomm Network Subsystem for hardware acceleration, ensuring maximum throughput with minimal CPU usage.
+- **Optimized SQM**: Pre-configured Smart Queue Management using `fq_codel` and `nss-zk.qos`.
+  - **Tuned for Speed**: Default settings are optimized for **300+ Mbps FTTH** connections.
+  - **Low Latency**: Aggressive targets (3ms) for superior gaming and VoIP performance.
 
-The project utilizes a custom configuration file [`ax3600.config`](ax3600.config) to specify the desired settings for the firmware build. This file includes various options such as target platform, compiler optimizations, package selections, and more.
+### 🛡️ Security Hardening
 
-Additionally, the `uci` commands in the "Quality-of-Life Enhancements" section are used to fine-tune the wireless and network settings for improved performance and functionality. Refer to the [999-QOL_config](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/blob/main/files/etc/uci-defaults/999-QOL_config) for the specific configuration. 
+- **Hardened SSH**: Implements industry-standard configurations based on [SSH-Audit](https://github.com/jtesta/ssh-audit) and [BSI](https://www.bsi.bund.de/) guidelines.
+  - Disables weak ciphers and key exchange algorithms.
+  - Enforces strong authentication methods.
+- **Firewall & Network Defaults**: Secure baseline settings applied automatically via UCI defaults.
 
-## SSH Hardening
+### 🛠️ Automated & Customizable
 
-To enhance the security of SSH connections, the project includes a hardened SSH configuration. The configuration is derived from recommendations by [SSH-Audit](https://github.com/jtesta/ssh-audit) and the [BSI](https://www.bsi.bund.de/), it specifies strong key exchange algorithms, ciphers, message authentication codes (MACs), host key algorithms, and public key algorithms. This ensures that only secure and up-to-date algorithms are used for SSH communication.
+- **GitHub Actions Workflow**: Builds are triggered automatically on upstream commits or can be dispatched manually.
+- **UCI Defaults System**:
+  - [`999-QOL_config`](files/etc/uci-defaults/999-QOL_config): General quality-of-life settings for wireless and network.
+  - [`999-sqm-settings`](files/etc/uci-defaults/999-sqm-settings): Dedicated SQM optimization script.
+- **Custom Packages**: Includes a curated list of useful packages via [`ax3600.config`](ax3600.config).
 
+---
 
-## Contributing
+## ⚙️ Configuration Details
 
-Contributions to this project are welcome. If you encounter any issues or have suggestions for improvements, please open an issue or submit a pull request on the GitHub repository.
+### SQM Settings (Smart Queue Management)
 
-## Acknowledgements
+The firmware comes with a highly optimized SQM configuration out of the box. The settings are applied via `uci-defaults` on the first boot.
 
-- The OpenWrt project for providing the foundation for this firmware build.
-- The Qualcomm IPQ807x platform and the Xiaomi AX3600 router for the hardware support.
-- The community over at the [OpenWrt forum](https://forum.openwrt.org/t/ipq807x-nss-build/148529) for their valuable contributions and resources. 
-- [rodriguezst](https://github.com/rodriguezst) for his [ipq807x-openwrt-builder](https://github.com/rodriguezst/ipq807x-openwrt-builder)
-- And a special thanks to [qosmio](https://github.com/qosmio) for the main NSS development
+- **Interface**: `wan` (eth1)
+- **Script**: `nss-zk.qos` (Hardware accelerated QOS)
+- **QDisc**: `fq_codel`
+- **Link Layer Adaptation**: None (Optimized for fiber/ethernet)
+- **Bandwidth Limits**: Capped at 3000 Mbps (effectively unlimited for most Gigabit connections, acting as a bufferbloat safeguard).
+
+### SSH Configuration
+
+The SSH daemon (`sshd`) is configured to reject legacy and insecure connection attempts. If you are unable to connect with an older client, please update your SSH client to support modern algorithms (e.g., Ed25519, chacha20-poly1305).
+
+---
+
+## 🏗️ Build Process
+
+The build is handled entirely by GitHub Actions:
+
+1.  **Monitor**: Checks for updates in the upstream [qosmio/openwrt-ipq](https://github.com/qosmio/openwrt-ipq) repository.
+2.  **Prepare**: Sets up the build environment and dependencies.
+3.  **Patch**: Applies custom patches (e.g., NSS load status).
+4.  **Configure**: Merges `ax3600.config` and custom files.
+5.  **Compile**: Builds the firmware image.
+6.  **Release**: Uploads artifacts and creates a GitHub Release.
+
+---
+
+## 🤝 Acknowledgements
+
+- **[qosmio](https://github.com/qosmio)**: for the incredible work on the core NSS development and OpenWrt sources.
+- **[rodriguezst](https://github.com/rodriguezst)**: for the [`ipq807x-openwrt-builder`](https://github.com/rodriguezst/ipq807x-openwrt-builder) inspiration.
+- **OpenWrt Community**: specifically the [IPQ807x NSS Build thread](https://forum.openwrt.org/t/ipq807x-nss-build/148529).

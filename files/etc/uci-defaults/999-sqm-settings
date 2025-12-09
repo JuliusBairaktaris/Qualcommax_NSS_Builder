@@ -1,0 +1,21 @@
+uci -q batch << EOI
+set sqm.eth1=queue
+set sqm.eth1.enabled='1'
+set sqm.eth1.interface='wan'
+set sqm.eth1.download='0'
+set sqm.eth1.upload='0'
+set sqm.eth1.script='nss-zk.qos'
+set sqm.eth1.qdisc='fq_codel'
+set sqm.eth1.qdisc_advanced='1'
+set sqm.eth1.squash_dscp='0'
+set sqm.eth1.squash_ingress='1'
+set sqm.eth1.ingress_ecn='NOECN'
+set sqm.eth1.egress_ecn='NOECN'
+set sqm.eth1.qdisc_really_really_advanced='1'
+set sqm.eth1.ilimit='3000'
+set sqm.eth1.elimit='3000'
+set sqm.eth1.itarget='3ms'
+set sqm.eth1.etarget='3ms'
+set sqm.eth1.iqdisc_opts='interval 50ms quantum 304'
+set sqm.eth1.eqdisc_opts='interval 50ms quantum 304'
+EOI
