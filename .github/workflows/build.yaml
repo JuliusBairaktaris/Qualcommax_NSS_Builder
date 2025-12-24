@@ -214,7 +214,11 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "OpenWrt Build $date" \
             --notes-file release_notes.md \
+            --draft=false \
             $(find openwrt/bin/targets/qualcommax/ipq807x/ -type f -not -path "*/packages/*")
+
+          echo "Verifying release..."
+          gh release view "$tag_name" || echo "WARNING: Release not found immediately after creation!"
 
   cleanup_releases:
     name: Cleanup Old Releases
@@ -230,6 +234,10 @@ jobs:
       - name: Prune releases
         run: |
           set -euo pipefail
+
+          # Debug: List all releases including drafts
+          echo "Current releases (including drafts):"
+          gh release list --limit 20 --all || true
 
           keep="${RELEASES_TO_KEEP:-2}"
           current_tag="${{ needs.build_firmware.outputs.release_tag }}"
