@@ -235,9 +235,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Debug: List all releases including drafts
-          echo "Current releases (including drafts):"
-          gh release list --limit 20 --all || true
+          # Debug: List all releases
+          echo "Current releases:"
+          gh release list --limit 20 || true
 
           keep="${RELEASES_TO_KEEP:-2}"
           current_tag="${{ needs.build_firmware.outputs.release_tag }}"
@@ -246,6 +246,11 @@ jobs:
           if [ -n "$current_tag" ]; then
             echo "Protecting current release: $current_tag"
           fi
+
+          # Debug: Show which releases will be kept
+          echo "Calculated releases to KEEP:"
+          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" | \
+          jq -r --argjson keep "$keep" 'map(select(.draft | not)) | sort_by(.created_at) | reverse | .[:$keep] | .[].tag_name' || true
 
           # Fetch and filter releases to delete
           gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" | \
