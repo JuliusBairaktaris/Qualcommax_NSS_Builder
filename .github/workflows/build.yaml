@@ -220,44 +220,12 @@ jobs:
           echo "Verifying release..."
           gh release view "$tag_name" || echo "WARNING: Release not found immediately after creation!"
 
-  cleanup_releases:
-    name: Cleanup Old Releases
-    needs: build_firmware
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - name: Prune releases
+      - name: Delete older releases
+        env:
+          KEEP: ${{ env.RELEASES_TO_KEEP }}
+          CURRENT: ${{ steps.release.outputs.release_tag }}
         run: |
-          set -euo pipefail
-
-          # Debug: List all releases
-          echo "Current releases:"
-          gh release list --limit 20 || true
-
-          keep="${RELEASES_TO_KEEP:-2}"
-          current_tag="${{ needs.build_firmware.outputs.release_tag }}"
-
-          echo "Keeping last $keep releases..."
-          if [ -n "$current_tag" ]; then
-            echo "Protecting current release: $current_tag"
-          fi
-
-          # Debug: Show which releases will be kept
-          echo "Calculated releases to KEEP:"
-          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" | \
-          jq -r --argjson keep "$keep" 'map(select(.draft | not)) | sort_by(.created_at) | reverse | .[:$keep] | .[].tag_name' || true
-
-          # Fetch and filter releases to delete
-          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" | \
-          jq -r --argjson keep "$keep" --arg current_tag "$current_tag" '
-            map(select(.draft | not)) | sort_by(.created_at) | reverse | .[$keep:] | .[] | select(.tag_name != $current_tag) | "\(.id) \(.tag_name)"
-          ' | while read -r release_id tag_name; do
-            echo "Deleting release $release_id (tag: $tag_name)"
-            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${release_id}"
-            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag_name}" || true
-          done
+          gh release list --limit 100 --exclude-drafts --json tagName,publishedAt --order desc | \
+          jq -r --argjson keep "${KEEP:-2}" --arg current "$CURRENT" \
+            'sort_by(.publishedAt) | reverse | .[$keep:] | .[].tagName | select(. != $current)' | \
+          while read -r tag; do gh release delete "$tag" --yes --cleanup-tag; done
