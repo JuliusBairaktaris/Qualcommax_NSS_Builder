@@ -73,14 +73,14 @@ Grab the latest sysupgrade image from the [Releases page](https://github.com/Jul
 ### Flash via LuCI (Web UI)
 
 1. Navigate to **System > Backup / Flash Firmware**
-2. Upload the `*-sysupgrade.itb` file
+2. Upload the `*-sysupgrade.bin` file
 3. Uncheck "Keep settings" for a clean install (recommended on first flash)
 4. Flash and wait for reboot (~2-3 minutes)
 
 ### Flash via CLI
 
 ```bash
-sysupgrade -n /tmp/openwrt-*-sysupgrade.itb
+sysupgrade -n /tmp/openwrt-qualcommax-ipq807x-xiaomi_ax3600-squashfs-sysupgrade.bin
 ```
 
 > **Note**: If you're coming from stock Xiaomi firmware, you need to install OpenWrt first. See the [OpenWrt AX3600 installation guide](https://openwrt.org/toh/xiaomi/ax3600).
@@ -190,7 +190,7 @@ Dropbear does not support post-quantum key exchange algorithms (ML-KEM, sntrup76
 
 ### How do I update to a newer build?
 
-Download the latest `*-sysupgrade.itb` from the [Releases page](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/releases/latest) and flash it via LuCI or CLI. Settings are preserved during sysupgrade unless you use the `-n` flag.
+Download the latest `*-sysupgrade.bin` from the [Releases page](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/releases/latest) and flash it via LuCI or CLI. Settings are preserved during sysupgrade unless you use the `-n` flag.
 
 ### Why are builds triggered every 2 hours?
 
