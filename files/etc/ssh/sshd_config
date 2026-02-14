@@ -1,5 +1,6 @@
 PermitRootLogin yes
 PasswordAuthentication yes
+Subsystem sftp /usr/libexec/sftp-server
 
 # Supported HostKey algorithms by order of preference.
 HostKey /etc/ssh/ssh_host_ed25519_key
