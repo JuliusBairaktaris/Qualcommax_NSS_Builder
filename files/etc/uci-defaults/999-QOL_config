@@ -34,6 +34,8 @@ set firewall.@zone[1].forward='DROP'
 set network.globals.packet_steering='0'
 set network.@device[0].flow_offloading='0'
 set network.@device[0].flow_offloading_hw='0'
+set bcp38.cfg018e45.enabled='1'
+set bcp38.cfg018e45.interface='wan'
 
 # uHTTPd settings
 set uhttpd.main.redirect_https='1'
