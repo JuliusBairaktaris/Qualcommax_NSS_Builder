@@ -132,10 +132,13 @@ jobs:
             cp feeds.conf.default feeds.conf
           fi
           echo "src-git qosmio https://github.com/qosmio/packages-extra" >> feeds.conf
+          echo "src-git sqm_nss https://github.com/JuliusBairaktaris/sqm-scripts-nss" >> feeds.conf
 
           # Update and install feeds
           ./scripts/feeds update qosmio
           ./scripts/feeds install -a -p qosmio
+          ./scripts/feeds update sqm_nss
+          ./scripts/feeds install -a -p sqm_nss
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
@@ -146,6 +149,7 @@ jobs:
           # Disable bundling custom repos
           sed -i 's/^CONFIG_FEED_luci_extra=.*/# CONFIG_FEED_luci_extra is not set/' .config
           sed -i 's/^CONFIG_FEED_qosmio=.*/# CONFIG_FEED_qosmio is not set/' .config
+          sed -i 's/^CONFIG_FEED_sqm_nss=.*/# CONFIG_FEED_sqm_nss is not set/' .config
 
           # Add custom files
           if [ -d "../builder_repo/${CUSTOM_FILES_PATH}" ]; then

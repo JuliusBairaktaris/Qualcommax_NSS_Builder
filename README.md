@@ -102,9 +102,9 @@ NSS offloading is fully enabled across all supported subsystems:
 | `kmod-qca-nss-drv-vlan-mgr` | VLAN acceleration |
 | `kmod-qca-mcs` | Multicast snooping |
 | `luci-mod-status-nss` | NSS status in LuCI |
-| `sqm-scripts-nss` | Hardware-accelerated SQM |
+| `sqm-scripts-nss` | Hardware-accelerated SQM ([JuliusBairaktaris/sqm-scripts-nss](https://github.com/JuliusBairaktaris/sqm-scripts-nss)) |
 
-The SQM configuration targets low-latency use cases (gaming, VoIP) with 4ms queue targets and hardware QoS via the `nss-zk.qos` script.
+The SQM configuration targets low-latency use cases (gaming, VoIP) with 4ms queue targets and hardware QoS via the `nss-zk.qos` script. This firmware uses the [JuliusBairaktaris/sqm-scripts-nss](https://github.com/JuliusBairaktaris/sqm-scripts-nss) implementation for improved hardware-accelerated QoS.
 
 ### Security Hardening
 
@@ -182,7 +182,7 @@ Yes. This firmware is built specifically for the Xiaomi AX3600 (codename `xiaomi
 
 ### Can I use SQM (bufferbloat control) with NSS?
 
-Yes. This firmware includes `sqm-scripts-nss` which provides hardware-accelerated SQM via the `nss-zk.qos` script. You get bufferbloat control at gigabit speeds with minimal CPU overhead.
+Yes. This firmware includes hardware-accelerated SQM via the [JuliusBairaktaris/sqm-scripts-nss](https://github.com/JuliusBairaktaris/sqm-scripts-nss) implementation, which provides the `nss-zk.qos` script. You get bufferbloat control at gigabit speeds with minimal CPU overhead.
 
 ### Why OpenSSH instead of Dropbear?
 
