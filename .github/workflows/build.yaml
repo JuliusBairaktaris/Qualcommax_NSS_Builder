@@ -32,7 +32,7 @@ env:
 jobs:
   check_updates:
     name: Check for Updates
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
@@ -76,7 +76,7 @@ jobs:
     name: Build Firmware
     needs: check_updates
     if: needs.check_updates.outputs.build_required == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     permissions:
       contents: write
