@@ -9,7 +9,6 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -69,16 +68,14 @@ jobs:
           echo "NSS SHA: $nss_sha"
 
           # Output results
-          cat >> "$GITHUB_OUTPUT" <<EOF
-          build_required=$build_required
-          main_sha=$main_sha
-          nss_sha=$nss_sha
-          EOF
+          echo "build_required=$build_required" >> "$GITHUB_OUTPUT"
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+          echo "nss_sha=$nss_sha" >> "$GITHUB_OUTPUT"
 
   build_firmware:
     name: Build Firmware
     needs: check_updates
-    if: needs.check_updates.outputs.build_required == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.check_updates.outputs.build_required == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     permissions:
@@ -111,7 +108,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           path: builder_repo
-          fetch-depth: 0
 
       - name: Prepare build environment
         working-directory: openwrt
@@ -165,13 +161,11 @@ jobs:
 
           # Set reproducible build parameters
           main_epoch=$(git show -s --format=%ct HEAD)
-          cat >> "$GITHUB_ENV" <<EOF
-          SOURCE_DATE_EPOCH=$main_epoch
-          TZ=UTC
-          LC_ALL=C
-          KBUILD_BUILD_USER=builder
-          KBUILD_BUILD_HOST=github
-          EOF
+          echo "SOURCE_DATE_EPOCH=$main_epoch" >> "$GITHUB_ENV"
+          echo "TZ=UTC" >> "$GITHUB_ENV"
+          echo "LC_ALL=C" >> "$GITHUB_ENV"
+          echo "KBUILD_BUILD_USER=builder" >> "$GITHUB_ENV"
+          echo "KBUILD_BUILD_HOST=github" >> "$GITHUB_ENV"
 
       - name: Build
         working-directory: openwrt
@@ -179,7 +173,11 @@ jobs:
           set -euo pipefail
 
           echo "Starting download..."
-          make download -j"$(nproc)" V=s
+          for attempt in 1 2 3; do
+            make download -j"$(nproc)" V=s && break
+            echo "Download attempt $attempt failed, retrying..."
+            sleep 5
+          done
 
           echo "Starting build..."
           if ! make -j"$(nproc)"; then
@@ -188,7 +186,7 @@ jobs:
           fi
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: ipq807x-images
           path: openwrt/bin/targets/qualcommax/ipq807x
@@ -206,20 +204,20 @@ jobs:
           echo "release_tag=$tag_name" >> "$GITHUB_OUTPUT"
 
           # Create release notes
-          cat > release_notes.md <<EOF
-          ## OpenWrt Automated Build
-          - **Date**: $date
-          - **Main Commit**: \`${{ needs.check_updates.outputs.main_sha }}\`
-          - **NSS Commit**: \`${{ needs.check_updates.outputs.nss_sha }}\`
-          - **Trigger**: \`${{ github.event_name }}\`
-          EOF
+          {
+            echo "## OpenWrt Automated Build"
+            echo "- **Date**: $date"
+            echo "- **Main Commit**: \`${{ needs.check_updates.outputs.main_sha }}\`"
+            echo "- **NSS Commit**: \`${{ needs.check_updates.outputs.nss_sha }}\`"
+            echo "- **Trigger**: \`${{ github.event_name }}\`"
+          } > release_notes.md
 
+          mapfile -t assets < <(find openwrt/bin/targets/qualcommax/ipq807x/ -type f -not -path "*/packages/*")
           gh release create "$tag_name" \
             --repo "$GITHUB_REPOSITORY" \
             --title "OpenWrt Build $date" \
             --notes-file release_notes.md \
-            --draft=false \
-            $(find openwrt/bin/targets/qualcommax/ipq807x/ -type f -not -path "*/packages/*")
+            "${assets[@]}"
 
           echo "Verifying release..."
           gh release view "$tag_name" || echo "WARNING: Release not found immediately after creation!"
