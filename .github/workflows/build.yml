@@ -41,7 +41,7 @@ jobs:
       artifact_retention_days: ${{ steps.cfg.outputs.artifact_retention_days }}
       feeds_lines: ${{ steps.cfg.outputs.feeds_lines }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - id: cfg
         run: bash scripts/load-config.sh
 
@@ -121,7 +121,7 @@ jobs:
             libncurses5-dev libssl-dev python3-setuptools rsync swig unzip zlib1g-dev file wget
 
       - name: Checkout OpenWrt source
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ needs.config.outputs.upstream_repo }}
           ref: ${{ env.MAIN_SHA }}
@@ -129,7 +129,7 @@ jobs:
           path: openwrt
 
       - name: Checkout builder repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: builder
 
@@ -222,5 +222,5 @@ jobs:
       KEEP: ${{ needs.config.outputs.release_keep }}
       CURRENT_TAG: ${{ needs.build.outputs.release_tag }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - run: bash scripts/prune-releases.sh
