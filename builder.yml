@@ -1,0 +1,36 @@
+# Qualcommax NSS Builder — fork configuration.
+#
+# This is the single file you need to edit when forking. Everything else
+# (workflow, scripts, docs) reads from here.
+#
+# After editing, push to your fork. GitHub Actions will pick up the change
+# and produce a release on the next scheduled run (or via "Run workflow").
+
+# Upstream OpenWrt source (the tree that will be checked out and built).
+upstream:
+  repo: qosmio/openwrt-ipq
+  branch: main-nss
+
+# NSS packages source. Tracked separately so we can detect package-only updates.
+nss_packages:
+  repo: qosmio/nss-packages
+  branch: NSS-12.5-K6.x
+
+# Device id. Must match a directory under devices/<id>/ containing
+#   - config        (the OpenWrt .config file)
+#   - files/        (overlay rootfs, optional)
+device: xiaomi_ax3600
+
+# Custom feeds appended to feeds.conf during build. Order matters.
+# Each entry becomes:  src-git <name> <url>
+feeds:
+  - name: qosmio
+    url: https://github.com/qosmio/packages-extra
+  - name: sqm_nss
+    url: https://github.com/JuliusBairaktaris/sqm-scripts-nss
+
+# Release publishing settings.
+release:
+  prefix: main-nss            # tag = <prefix>-<UTC timestamp>-<run id>
+  keep: 2                     # number of newest releases to retain (older ones are deleted)
+  artifact_retention_days: 7  # how long the GitHub Actions artifact (separate from the release) is kept

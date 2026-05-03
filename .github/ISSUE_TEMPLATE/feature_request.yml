@@ -1,0 +1,38 @@
+name: Feature request / device support
+description: Request support for a new device, package, or workflow improvement
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of request?
+      options:
+        - New device support
+        - New package or feed
+        - Workflow / pipeline improvement
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What you want
+    validations:
+      required: true
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Why
+      description: What problem does this solve? Who benefits?
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context, links, prior art
+    validations:
+      required: false
