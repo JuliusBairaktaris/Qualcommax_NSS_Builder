@@ -1,7 +1,0 @@
-uci -q batch << EOI
-set sqm.eth1=queue
-set sqm.eth1.enabled='1'
-set sqm.eth1.interface='wan'
-set sqm.eth1.script='nss-zk.qos'
-set sqm.eth1.qdisc='fq_codel'
-EOI
