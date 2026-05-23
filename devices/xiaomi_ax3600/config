@@ -21,7 +21,9 @@ CONFIG_PACKAGE_kmod-qca-nss-ecm=y
 
 ## Additional NSS Configuration
 CONFIG_PACKAGE_kmod-qca-nss-drv-pppoe=n
+CONFIG_PACKAGE_kmod-qca-nss-drv-vlan-mgr=y
 CONFIG_PACKAGE_kmod-qca-mcs=y
+CONFIG_NSS_FIRMWARE_VERSION_12_5=y
 
 ## Disable Ath10k
 CONFIG_ATH10K-CT_LEDS=n
@@ -44,13 +46,15 @@ CONFIG_USE_MKLIBS=y
 CONFIG_USE_MOLD=y
 CONFIG_ZLIB_OPTIMIZE_SPEED=y
 CONFIG_ZSTD_OPTIMIZE_O3=y
-CONFIG_CCACHE=y
+# CONFIG_CCACHE is not set
 
 ## Kernel Build Options
 CONFIG_BUILD_PATENTED=y
 CONFIG_EXPERIMENTAL=y
 
 # Hardening build options
+CONFIG_GCC_DEFAULT_PIE=y
+CONFIG_GCC_DEFAULT_SSP=y
 CONFIG_PKG_CHECK_FORMAT_SECURITY=y
 CONFIG_PKG_ASLR_PIE_ALL=y
 CONFIG_PKG_CC_STACKPROTECTOR_ALL=y
@@ -71,10 +75,12 @@ CONFIG_LUA_ECO_OPENSSL=y
 CONFIG_OPENSSL_OPTIMIZE_SPEED=y
 CONFIG_PACKAGE_apk-mbedtls=n
 CONFIG_PACKAGE_apk-openssl=y
+CONFIG_PACKAGE_libopenssl-oqsprovider=y
 CONFIG_PACKAGE_libopenssl=y
 CONFIG_PACKAGE_libustream-mbedtls=n
 CONFIG_PACKAGE_libustream-openssl=y
 CONFIG_PACKAGE_luci-ssl-openssl=y
+CONFIG_PACKAGE_luci-app-bcp38=y
 
 ## Additional Packages and Utilities
 CONFIG_PACKAGE_curl=y
@@ -90,6 +96,8 @@ CONFIG_PACKAGE_luci-app-statistics=y
 CONFIG_PACKAGE_luci-app-wifihistory=y
 CONFIG_PACKAGE_wpad-openssl=y
 CONFIG_PACKAGE_luci-mod-status-nss=y
+CONFIG_PACKAGE_luci-app-sqm=n
+CONFIG_PACKAGE_sqm-scripts-nss=y
 CONFIG_PACKAGE_luci-app-dawn=y
 CONFIG_PACKAGE_avahi-dbus-daemon=y
 CONFIG_PACKAGE_nano=y
@@ -112,5 +120,5 @@ CONFIG_ATH11K_DEBUGFS_STA=n
 CONFIG_ATH11K_THERMAL=n
 
 ## Prevent Custom Feeds
-CONFIG_FEED_nss=n
+CONFIG_FEED_nss_packages=n
 CONFIG_FEED_sqm_scripts_nss=n
