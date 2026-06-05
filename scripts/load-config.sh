@@ -42,17 +42,15 @@ all_variants="$(yq -o=json -I=0 '.variants' "$BUILDER_YML")"
 [[ "$all_variants" != "null" && -n "$all_variants" ]] || log::die "no .variants defined in $BUILDER_YML"
 
 # Decide which variants to build for this event.
-if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-  sel="${VARIANT_INPUT:-all}"
-  log::info "event=workflow_dispatch -> selecting: $sel"
-  if [[ "$sel" == "all" ]]; then
-    selected="$(jq -c '.' <<<"$all_variants")"
-  else
-    selected="$(jq -c --arg id "$sel" '[ .[] | select(.id == $id) ]' <<<"$all_variants")"
-  fi
+#   - workflow_dispatch with a specific id: just that variant (forced).
+#   - otherwise (schedule/push, or dispatch "all"): every variant except those a fork
+#     opted out of with `scheduled: false`. check-updates then skips unchanged ones.
+if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$VARIANT_INPUT" && "$VARIANT_INPUT" != "all" ]]; then
+  log::info "event=workflow_dispatch -> selecting: $VARIANT_INPUT"
+  selected="$(jq -c --arg id "$VARIANT_INPUT" '[ .[] | select(.id == $id) ]' <<<"$all_variants")"
 else
-  log::info "event=${EVENT_NAME:-<none>} -> selecting scheduled variants"
-  selected="$(jq -c '[ .[] | select(.scheduled == true) ]' <<<"$all_variants")"
+  log::info "event=${EVENT_NAME:-<none>} -> selecting all scheduled variants"
+  selected="$(jq -c '[ .[] | select(.scheduled != false) ]' <<<"$all_variants")"
 fi
 
 count="$(jq 'length' <<<"$selected")"

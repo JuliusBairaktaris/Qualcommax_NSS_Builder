@@ -13,7 +13,7 @@ release:
 
 variants:
   - id: nss                          # also names the config fragment: config.nss
-    scheduled: true                  # built on schedule + push (false = manual only)
+    # scheduled: false               # optional opt-out; omitted = builds on schedule + push
     upstream:
       repo: qosmio/openwrt-ipq       # OpenWrt source tree
       ref: main-nss                  # branch, tag, or 40-char SHA
@@ -31,7 +31,6 @@ variants:
       prefix: main-nss               # tag = <prefix>-<UTC timestamp>-<run id>
 
   - id: edma
-    scheduled: false                 # manual workflow_dispatch only
     upstream:
       repo: Ansuel/openwrt           # PR #22381 author's fork
       ref: qca-edma-rework           # the PR branch, built directly
@@ -43,8 +42,10 @@ variants:
 ```
 
 Which variants build depends on the trigger:
-- **schedule / push** → variants with `scheduled: true`.
-- **Run workflow** (`workflow_dispatch`) → the `variant:` input (`all`, or a specific id).
+- **schedule / push** → every variant (except any with `scheduled: false`); `check-updates`
+  then skips the ones whose upstream is unchanged since their last release.
+- **Run workflow** (`workflow_dispatch`) → the `variant:` input (`all`, or a specific id —
+  a specific id forces a build even if unchanged).
 
 ## Device `.config` — base + fragment
 

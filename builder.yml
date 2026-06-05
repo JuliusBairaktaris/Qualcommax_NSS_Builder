@@ -5,9 +5,11 @@
 # self-contained recipe: its own upstream tree, feeds, device config fragment, and
 # release prefix.
 #
-#   - Variants with `scheduled: true` build on the cron schedule and on push to main.
-#   - Any variant can be built on demand via Actions -> Build -> "Run workflow" and
-#     picking `variant:` (an individual id, or `all`).
+#   - Every variant builds on the cron schedule and on push to main, and is skipped
+#     automatically if its upstream hasn't changed since the last release. Set
+#     `scheduled: false` on a variant to make it manual-only instead.
+#   - You can also force a build from Actions -> Build -> "Run workflow" and picking
+#     `variant:` (an individual id, or `all`).
 #
 # After editing, push to your fork. GitHub Actions picks up the change on the next
 # run (or trigger one manually).
@@ -24,7 +26,6 @@ variants:
   # Hardware packet offload via the IPQ807x Network Subsystem cores (2+ Gbps NAT).
   # --------------------------------------------------------------------------------
   - id: nss
-    scheduled: true                       # built by schedule + push
     upstream:
       repo: qosmio/openwrt-ipq
       ref: main-nss
@@ -43,16 +44,16 @@ variants:
 
   # --------------------------------------------------------------------------------
   # EDMA-rework build: the qca-edma PR #22381 branch, built directly. NO NSS.
-  # CPU-bound ethernet via the upstreamable qca-edma driver. Manual builds only.
+  # CPU-bound ethernet via the upstreamable qca-edma driver.
   #
   # We build the PR author's branch as-is rather than merging the PR onto latest main:
   # his qca-ppe/qca-uniphy pins and the phylink PCS patches are coherent on the branch,
   # so it compiles. (Merging the old PR onto a newer main breaks when main's phylink
-  # moves ahead of the PR's driver pins.) Each run tracks the branch tip.
+  # moves ahead of the PR's driver pins.) Tracks the branch tip and, like nss, rebuilds
+  # automatically whenever the author pushes (skipped while unchanged).
   # Once PR #22381 is merged upstream, point repo/ref at openwrt/openwrt + main.
   # --------------------------------------------------------------------------------
   - id: edma
-    scheduled: false                      # manual workflow_dispatch only
     upstream:
       repo: Ansuel/openwrt                # PR #22381 author's fork
       ref: qca-edma-rework                # the PR branch, built directly (branch tip each run)

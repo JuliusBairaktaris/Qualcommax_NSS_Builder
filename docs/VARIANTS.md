@@ -14,8 +14,8 @@ config fragment, and release prefix. `builder.yml` declares a list of them, and 
 | Proprietary code | NSS firmware + invasive kernel patches | none — all upstreamable |
 | Throughput | 2+ Gbps NAT, very low CPU | CPU-limited, but full software CAKE |
 | SQM | `sqm-scripts-nss`, `nss-zk.qos` | `sqm-scripts`, `cake` + software flow offload |
-| Maintenance | tracks a downstream fork | tracks mainline; PR merged fresh each build |
-| When it builds | schedule + push | manual `workflow_dispatch` |
+| Maintenance | tracks a downstream fork | tracks the PR author's branch |
+| When it builds | schedule + push (auto) | schedule + push (auto) — rebuilds when the branch moves |
 
 **Why NSS?** Maximum throughput. The IPQ807x NSS cores offload NAT/bridge/VLAN/QoS, so a
 1 Gbps+ symmetric line with SQM barely touches the ARM cores. The cost is proprietary NSS
@@ -41,7 +41,9 @@ upstream:
 ```
 
 `check-updates` resolves the branch tip to a SHA and `build` checks it out as-is — no merge,
-no patch. Clicking **Run workflow → variant: edma** builds whatever is on the branch right now.
+no patch. This is the same mechanism NSS uses, so EDMA **rebuilds automatically whenever Ansuel
+pushes** to the branch (and is skipped while the tip is unchanged). You can still force a build
+with **Run workflow → variant: edma**.
 
 **Why not merge the PR onto latest `main`?** We tried that first and it broke: the PR pins
 out-of-tree drivers (`qca-ppe`, `qca-uniphy`) against a specific state of OpenWrt's phylink PCS
@@ -60,7 +62,7 @@ build time (kept uncommitted so `SOURCE_DATE_EPOCH` stays pinned). `edma` no lon
 
    ```yaml
    - id: myvariant
-     scheduled: false                 # true = build on schedule/push; false = manual only
+     # scheduled: false               # optional; omit to build on schedule/push like the others
      upstream:
        repo: owner/openwrt
        ref: some-branch               # branch, tag, or 40-char SHA

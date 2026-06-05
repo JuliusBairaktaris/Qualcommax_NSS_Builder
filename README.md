@@ -27,12 +27,12 @@ A clean, opinionated GitHub Actions template for building OpenWrt firmware for Q
 | **Proprietary blobs** | yes (NSS firmware + kernel patches) | none (all upstreamable) |
 | **Throughput** | 2+ Gbps NAT, low CPU | lower (CPU-limited), but real CAKE SQM |
 | **SQM** | `sqm-scripts-nss` (`nss-zk.qos`) | standard `sqm-scripts` (`cake`) + SW flow offload |
-| **Builds on** | schedule + push (automatic) | manual `workflow_dispatch` only |
+| **Builds on** | schedule + push (auto, skipped if unchanged) | same — auto-rebuilds when the PR branch moves |
 | **Release tag** | `main-nss-<ts>-<run>` | `edma-<ts>-<run>` |
 
 Both share all the hardening, toolchain, and SSH/TLS choices below — they differ only in the data path. See [`docs/VARIANTS.md`](docs/VARIANTS.md) for the full rationale and how to add your own variant.
 
-To build EDMA: **Actions → Build → Run workflow → variant: `edma`** (or `all`). It builds the PR #22381 branch (`Ansuel/openwrt @ qca-edma-rework`) directly, tracking its tip each run.
+EDMA builds the PR #22381 branch (`Ansuel/openwrt @ qca-edma-rework`) directly and — like NSS — rebuilds automatically whenever the author pushes (skipped while unchanged). Force one anytime via **Actions → Build → Run workflow → variant: `edma`**.
 
 ---
 
@@ -41,7 +41,7 @@ To build EDMA: **Actions → Build → Run workflow → variant: `edma`** (or `a
 1. Click **Use this template** → create your repo.
 2. Edit [`builder.yml`](builder.yml). The defaults build a working AX3600 image for both variants; change `device:`, `feeds:`, or add a variant to retarget.
 3. (Optional) Customize [`devices/<id>/config`](devices/xiaomi_ax3600/config) (+ `config.<variant>`) and the `files*/` overlays.
-4. Push to `main`. The NSS build runs immediately and every 2 hours; trigger EDMA manually.
+4. Push to `main`. Both variants build on push and every 2 hours, each skipped automatically when its upstream is unchanged.
 5. Releases land on the **Releases** page of your fork.
 
 For a different device, see [`docs/ADD_A_DEVICE.md`](docs/ADD_A_DEVICE.md).
@@ -115,7 +115,7 @@ Enabled NSS modules: `kmod-qca-nss-drv`, `kmod-qca-nss-drv-bridge-mgr`, `kmod-qc
 
 ### EDMA mainline build (`edma` variant)
 
-A fully-upstreamable image built directly from [PR #22381](https://github.com/openwrt/openwrt/pull/22381) (Ansuel's `qca-edma`/`qca-ppe`/`qca-uniphy` rework on `Ansuel/openwrt @ qca-edma-rework`). No NSS firmware, no out-of-tree kernel patches. Ethernet is CPU-bound, so NAT throughput is lower than NSS, but you get a clean mainline kernel and full software CAKE/SQM. Built on demand via **Run workflow → variant: `edma`**.
+A fully-upstreamable image built directly from [PR #22381](https://github.com/openwrt/openwrt/pull/22381) (Ansuel's `qca-edma`/`qca-ppe`/`qca-uniphy` rework on `Ansuel/openwrt @ qca-edma-rework`). No NSS firmware, no out-of-tree kernel patches. Ethernet is CPU-bound, so NAT throughput is lower than NSS, but you get a clean mainline kernel and full software CAKE/SQM. Rebuilds automatically when the PR branch is updated (or force it via **Run workflow → variant: `edma`**).
 
 ### Security hardening (both variants)
 
