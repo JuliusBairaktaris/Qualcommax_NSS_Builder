@@ -56,6 +56,7 @@ variants:
       repo: openwrt/openwrt
       ref: main                           # latest mainline at build time
     merge_prs: [22381]                    # fetch refs/pull/<n>/head and merge onto `ref`
+    patches: edma                         # also apply patches/edma/*.patch (qca-ppe PCS fixup)
     target: qualcommax/ipq807x
     device: xiaomi_ax3600                 # uses config + config.edma + files.edma/
     feeds: []                             # stock OpenWrt feeds only
