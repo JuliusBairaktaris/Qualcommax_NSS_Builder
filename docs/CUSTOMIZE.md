@@ -33,9 +33,8 @@ variants:
   - id: edma
     scheduled: false                 # manual workflow_dispatch only
     upstream:
-      repo: openwrt/openwrt
-      ref: main
-    merge_prs: [22381]               # PRs fetched + merged onto `ref` every build
+      repo: Ansuel/openwrt           # PR #22381 author's fork
+      ref: qca-edma-rework           # the PR branch, built directly
     target: qualcommax/ipq807x
     device: xiaomi_ax3600
     feeds: []
@@ -79,8 +78,8 @@ don't bundle every package from the feed — only what you explicitly enable in 
 ## Merging OpenWrt PRs
 
 A variant can list `merge_prs: [<n>, ...]`. Each PR is `git fetch`ed from the upstream repo and
-3-way merged onto `ref` at build time (kept uncommitted). Used by `edma` to ride PR #22381 on top
-of the latest `main`. See [`VARIANTS.md`](VARIANTS.md).
+3-way merged onto `ref` at build time (kept uncommitted). `edma` instead builds the PR branch
+directly (see [`VARIANTS.md`](VARIANTS.md) for why), but the mechanism is available for any variant.
 
 ## Source patches
 

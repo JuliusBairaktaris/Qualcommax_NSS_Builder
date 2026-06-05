@@ -30,31 +30,29 @@ upstream-tracking image over peak Gbps.
 They are **mutually exclusive** — NSS patches the kernel networking stack invasively, so a
 single image is one or the other, never both.
 
-## How EDMA pulls in PR #22381
+## How EDMA tracks PR #22381
 
-The `edma` variant sets:
+The `edma` variant builds the PR author's branch **directly**:
 
 ```yaml
 upstream:
-  repo: openwrt/openwrt
-  ref: main             # latest mainline, resolved to a SHA at build time
-merge_prs: [22381]      # fetched fresh and merged onto `ref` every build
+  repo: Ansuel/openwrt    # PR #22381 author's fork
+  ref: qca-edma-rework    # the PR branch tip, resolved to a SHA each run
 ```
 
-At build time `scripts/prepare-build.sh`:
+`check-updates` resolves the branch tip to a SHA and `build` checks it out as-is — no merge,
+no patch. Clicking **Run workflow → variant: edma** builds whatever is on the branch right now.
 
-1. lets `check-updates` resolve `main` to the current commit and checks it out,
-2. `git fetch origin pull/22381/head` and `git merge --no-commit --no-ff` it onto that
-   commit (kept uncommitted so `SOURCE_DATE_EPOCH` stays pinned to the upstream commit),
-3. proceeds with feeds → `.config` → overlays as usual.
+**Why not merge the PR onto latest `main`?** We tried that first and it broke: the PR pins
+out-of-tree drivers (`qca-ppe`, `qca-uniphy`) against a specific state of OpenWrt's phylink PCS
+patches. When `main` moved its phylink ahead of the PR (renaming `phylink_config.available_pcs`
+→ `num_available_pcs`), the merged tree paired a *new* phylink with the PR's *old* driver pins
+and failed to compile. The PR author's branch keeps both in lockstep, so building it directly
+just works. Once PR #22381 is merged upstream, point `repo`/`ref` at `openwrt/openwrt` + `main`.
 
-So **clicking "Run workflow → variant: edma" always builds the current PR on top of the
-current `main`** — there is no vendored patch to refresh. If `main` has drifted far enough
-that the PR no longer merges cleanly, the build fails loudly; wait for the PR author to
-rebase, then rebuild. Once the PR is merged upstream, drop `merge_prs` and the variant just
-tracks `main`.
-
-`merge_prs` is a general mechanism — list any OpenWrt PR numbers and they're merged in order.
+`merge_prs: [<n>, ...]` is still supported as a general mechanism for any variant — each listed
+PR is fetched from the variant's `upstream.repo` and `git merge --no-commit`'d onto `ref` at
+build time (kept uncommitted so `SOURCE_DATE_EPOCH` stays pinned). `edma` no longer uses it.
 
 ## Adding a variant
 

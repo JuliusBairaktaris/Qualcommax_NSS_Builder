@@ -22,7 +22,7 @@ A clean, opinionated GitHub Actions template for building OpenWrt firmware for Q
 
 | | `nss` | `edma` |
 |---|---|---|
-| **Upstream** | `qosmio/openwrt-ipq` (NSS fork) | `openwrt/openwrt` `main` + PR #22381 |
+| **Upstream** | `qosmio/openwrt-ipq` (NSS fork) | `Ansuel/openwrt` `qca-edma-rework` (PR #22381) |
 | **Ethernet** | NSS hardware offload | `qca-edma` driver, CPU-bound |
 | **Proprietary blobs** | yes (NSS firmware + kernel patches) | none (all upstreamable) |
 | **Throughput** | 2+ Gbps NAT, low CPU | lower (CPU-limited), but real CAKE SQM |
@@ -32,7 +32,7 @@ A clean, opinionated GitHub Actions template for building OpenWrt firmware for Q
 
 Both share all the hardening, toolchain, and SSH/TLS choices below — they differ only in the data path. See [`docs/VARIANTS.md`](docs/VARIANTS.md) for the full rationale and how to add your own variant.
 
-To build EDMA: **Actions → Build → Run workflow → variant: `edma`** (or `all`). It checks out the latest OpenWrt `main` and merges PR #22381 on top, fresh, every run.
+To build EDMA: **Actions → Build → Run workflow → variant: `edma`** (or `all`). It builds the PR #22381 branch (`Ansuel/openwrt @ qca-edma-rework`) directly, tracking its tip each run.
 
 ---
 
@@ -115,7 +115,7 @@ Enabled NSS modules: `kmod-qca-nss-drv`, `kmod-qca-nss-drv-bridge-mgr`, `kmod-qc
 
 ### EDMA mainline build (`edma` variant)
 
-A fully-upstreamable image: latest OpenWrt `main` with [PR #22381](https://github.com/openwrt/openwrt/pull/22381) (Ansuel's `qca-edma`/`qca-ppe`/`qca-uniphy` rework) merged on top. No NSS firmware, no out-of-tree kernel patches. Ethernet is CPU-bound, so NAT throughput is lower than NSS, but you get a clean mainline kernel and full software CAKE/SQM. Built on demand via **Run workflow → variant: `edma`**.
+A fully-upstreamable image built directly from [PR #22381](https://github.com/openwrt/openwrt/pull/22381) (Ansuel's `qca-edma`/`qca-ppe`/`qca-uniphy` rework on `Ansuel/openwrt @ qca-edma-rework`). No NSS firmware, no out-of-tree kernel patches. Ethernet is CPU-bound, so NAT throughput is lower than NSS, but you get a clean mainline kernel and full software CAKE/SQM. Built on demand via **Run workflow → variant: `edma`**.
 
 ### Security hardening (both variants)
 

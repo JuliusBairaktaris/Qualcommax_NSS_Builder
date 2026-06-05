@@ -42,21 +42,20 @@ variants:
       prefix: main-nss                    # tag = <prefix>-<UTC timestamp>-<run id>
 
   # --------------------------------------------------------------------------------
-  # EDMA-rework build: latest mainline OpenWrt + PR #22381, NO NSS acceleration.
+  # EDMA-rework build: the qca-edma PR #22381 branch, built directly. NO NSS.
   # CPU-bound ethernet via the upstreamable qca-edma driver. Manual builds only.
   #
-  # `merge_prs` is fetched fresh and 3-way merged onto the latest `ref` every build —
-  # click "Run workflow" -> variant: edma and you get the current PR on top of the
-  # current main. No vendored patch to refresh. If main has drifted enough that the PR
-  # no longer merges, the build fails loudly (wait for the PR author to rebase).
+  # We build the PR author's branch as-is rather than merging the PR onto latest main:
+  # his qca-ppe/qca-uniphy pins and the phylink PCS patches are coherent on the branch,
+  # so it compiles. (Merging the old PR onto a newer main breaks when main's phylink
+  # moves ahead of the PR's driver pins.) Each run tracks the branch tip.
+  # Once PR #22381 is merged upstream, point repo/ref at openwrt/openwrt + main.
   # --------------------------------------------------------------------------------
   - id: edma
     scheduled: false                      # manual workflow_dispatch only
     upstream:
-      repo: openwrt/openwrt
-      ref: main                           # latest mainline at build time
-    merge_prs: [22381]                    # fetch refs/pull/<n>/head and merge onto `ref`
-    patches: edma                         # also apply patches/edma/*.patch (qca-ppe PCS fixup)
+      repo: Ansuel/openwrt                # PR #22381 author's fork
+      ref: qca-edma-rework                # the PR branch, built directly (branch tip each run)
     target: qualcommax/ipq807x
     device: xiaomi_ax3600                 # uses config + config.edma + files.edma/
     feeds: []                             # stock OpenWrt feeds only
