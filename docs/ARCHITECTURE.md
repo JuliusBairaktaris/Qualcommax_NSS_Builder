@@ -12,7 +12,7 @@ config -> check-updates -> build (matrix over variants) -> prune
 | Job | File | Runtime | Purpose |
 |---|---|---|---|
 | `config` | `build.yml` → `scripts/load-config.sh` | ~10s | Parses `builder.yml` and selects the variants for this event (all of them on schedule/push, minus any `scheduled: false`; or the single `workflow_dispatch` choice), emits the build **matrix** + global release settings. Validates each selected variant's device dir, base config, and `config.<id>` fragment up front. |
-| `check-updates` | `build.yml` → `scripts/check-updates.sh` | ~15s | Resolves each variant's upstream (and NSS) ref to a commit SHA via `git ls-remote`, then drops variants whose latest release for that prefix already records the SHA(s). Manual runs always build. Emits the **filtered** matrix + `has_builds`. |
+| `check-updates` | `build.yml` → `scripts/check-updates.sh` | ~15s | Resolves each variant's upstream (and NSS) ref to a commit SHA via `git ls-remote`. On a **scheduled** tick it drops variants whose latest release already records the SHA(s); on **push** (config changed) and **manual** runs it builds them all. Emits the **filtered** matrix + `has_builds`. |
 | `build` | `build.yml` → `scripts/prepare-build.sh` | 2-6h | A matrix job (`fail-fast: false`). For each variant: checks out its upstream at the pinned SHA, merges any `merge_prs`, runs `prepare-build.sh` (feeds, base+fragment `.config`, overlays), sets reproducible-build env, compiles, uploads the artifact, creates the GitHub Release. |
 | `prune` | `build.yml` → `scripts/prune-releases.sh` | ~10s | Keeps the newest `release.keep` releases **per variant prefix** so the variants don't evict each other. Tested in `scripts/tests/prune-releases.test.sh`. |
 

@@ -90,7 +90,7 @@ config -> check-updates -> build (matrix over variants) -> prune
 | Job | Purpose |
 |---|---|
 | `config` | Parses `builder.yml`, selects the variants for this event (scheduled set, or the `workflow_dispatch` choice), emits the build matrix |
-| `check-updates` | Resolves each variant's upstream (and NSS) commit; drops variants whose latest release already records that commit (manual runs always build) |
+| `check-updates` | Resolves each variant's upstream (and NSS) commit; on scheduled ticks it drops variants whose latest release already records that commit (push + manual runs always build) |
 | `build` | For each selected variant: checks out its upstream, merges any PRs, applies overlays, compiles, uploads the artifact, creates a GitHub Release. `fail-fast: false` — one variant breaking doesn't abort the other |
 | `prune` | Keeps the newest `release.keep` releases **per variant prefix** (`scripts/prune-releases.sh`) |
 

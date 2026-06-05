@@ -3,9 +3,10 @@
 # a rebuild, and emit the filtered build matrix consumed by the `build` job.
 #
 # A variant needs a build when:
-#   - the event is workflow_dispatch (manual runs always build), OR
-#   - the latest release for that variant's prefix does not already record the current
-#     upstream SHA (and NSS SHA, when the variant tracks one).
+#   - the event is anything other than `schedule` — a push means the builder config changed
+#     and workflow_dispatch is an explicit request, so both always rebuild; OR
+#   - on a scheduled tick, the latest release for that variant's prefix does not already
+#     record the current upstream SHA (and NSS SHA, when the variant tracks one).
 #
 # Required tools: jq, git, gh.
 #
@@ -71,9 +72,11 @@ while IFS= read -r row; do
     nss_sha="$(resolve_sha "$nss_repo" "$nss_ref")"
   fi
 
-  if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+  if [[ "$EVENT_NAME" != "schedule" ]]; then
+    # push (builder config changed) or manual dispatch (explicit) -> always rebuild.
     need=true
   else
+    # scheduled tick -> only rebuild variants whose upstream moved since the last release.
     body="$(latest_body_for_prefix "$prefix")"
     if [[ "$body" == *"$up_sha"* ]] && { [[ -z "$nss_sha" ]] || [[ "$body" == *"$nss_sha"* ]]; }; then
       need=false

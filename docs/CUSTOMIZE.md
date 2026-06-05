@@ -42,10 +42,13 @@ variants:
 ```
 
 Which variants build depends on the trigger:
-- **schedule / push** → every variant (except any with `scheduled: false`); `check-updates`
-  then skips the ones whose upstream is unchanged since their last release.
-- **Run workflow** (`workflow_dispatch`) → the `variant:` input (`all`, or a specific id —
-  a specific id forces a build even if unchanged).
+- **schedule** → every variant (except any with `scheduled: false`); `check-updates` skips the
+  ones whose upstream is unchanged since their last release (this is the "rebuild when upstream
+  moves" path).
+- **push** → same selection, but always rebuilt — a push to the builder repo means the config,
+  overlays, or scripts changed, so the image must be regenerated.
+- **Run workflow** (`workflow_dispatch`) → the `variant:` input (`all`, or a specific id); always
+  rebuilt.
 
 ## Device `.config` — base + fragment
 
