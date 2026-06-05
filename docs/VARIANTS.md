@@ -13,7 +13,7 @@ config fragment, and release prefix. `builder.yml` declares a list of them, and 
 | Ethernet driver | NSS data plane (hardware offload) | `qca-edma` (CPU-bound) |
 | Proprietary code | NSS firmware + invasive kernel patches | none — all upstreamable |
 | Throughput | 2+ Gbps NAT, very low CPU | CPU-limited, but full software CAKE |
-| QoS | `sqm-scripts-nss`, `nss-zk.qos` | `sqm-scripts` (`cake`) + [QoSmate](https://github.com/hudra0/qosmate) + SW flow offload |
+| QoS | `sqm-scripts-nss`, `nss-zk.qos` | [QoSmate](https://github.com/hudra0/qosmate) (HFSC/CAKE) + SW flow offload |
 | Maintenance | tracks a downstream fork | tracks the PR author's branch |
 | When it builds | schedule + push (auto) | schedule + push (auto) — rebuilds when the branch moves |
 

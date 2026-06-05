@@ -82,7 +82,6 @@ CONFIG_LIBCURL_OPENSSL=y
 CONFIG_PACKAGE_luci=y
 CONFIG_PACKAGE_luci-app-firewall=y
 CONFIG_PACKAGE_wpad-openssl=y
-CONFIG_PACKAGE_luci-app-sqm=y
 
 ## Redundant Default Packages
 CONFIG_PACKAGE_kmod-phy-aquantia=n

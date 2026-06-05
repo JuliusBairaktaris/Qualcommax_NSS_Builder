@@ -16,5 +16,6 @@ CONFIG_PACKAGE_kmod-qca-nss-drv-vlan-mgr=y
 CONFIG_PACKAGE_kmod-qca-mcs=y
 CONFIG_NSS_FIRMWARE_VERSION_12_5=y
 
-## NSS-optimised SQM (from the sqm-scripts-nss feed)
+## NSS-optimised SQM (from the sqm-scripts-nss feed) + the SQM LuCI app
 CONFIG_PACKAGE_sqm-scripts-nss=y
+CONFIG_PACKAGE_luci-app-sqm=y

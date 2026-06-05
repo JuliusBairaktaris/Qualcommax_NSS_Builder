@@ -10,18 +10,17 @@
 ## once the PR is merged; listing it is belt-and-suspenders (dropped if ever absent).
 CONFIG_PACKAGE_kmod-qca-edma=y
 
-## Standard CPU SQM (cake) + software flow offload — worth it on a CPU-bound data path.
-CONFIG_PACKAGE_sqm-scripts=y
-CONFIG_PACKAGE_kmod-sched-cake=y
+## Software flow offload — worthwhile on a CPU-bound data path.
 CONFIG_PACKAGE_kmod-nft-offload=y
 
-## QoSmate — advanced HFSC/CAKE QoS + LuCI app (cloned into package/ by prepare-build).
-## EDMA-only: it shapes on the Linux/tc data path, which NSS bypasses.
+## QoSmate is the ONLY QoS on EDMA (no sqm-scripts) — advanced HFSC/CAKE QoS + LuCI app,
+## cloned into package/ by prepare-build. EDMA-only: it shapes on the Linux/tc data path,
+## which NSS bypasses via hardware offload.
 CONFIG_PACKAGE_qosmate=y
 CONFIG_PACKAGE_luci-app-qosmate=y
-## QoSmate's backend deps, listed explicitly so they're guaranteed in the image
-## (matches qosmate's DEPENDS; kmod-sched-cake is already enabled above).
+## QoSmate's backend deps, listed explicitly so they're guaranteed in the image.
 CONFIG_PACKAGE_kmod-sched=y
+CONFIG_PACKAGE_kmod-sched-cake=y
 CONFIG_PACKAGE_kmod-sched-red=y
 CONFIG_PACKAGE_kmod-sched-ctinfo=y
 CONFIG_PACKAGE_kmod-netem=y

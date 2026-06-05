@@ -26,7 +26,7 @@ A clean, opinionated GitHub Actions template for building OpenWrt firmware for Q
 | **Ethernet** | NSS hardware offload | `qca-edma` driver, CPU-bound |
 | **Proprietary blobs** | yes (NSS firmware + kernel patches) | none (all upstreamable) |
 | **Throughput** | 2+ Gbps NAT, low CPU | lower (CPU-limited), but real CAKE SQM |
-| **QoS** | `sqm-scripts-nss` (`nss-zk.qos`) | `sqm-scripts` (`cake`) **+ QoSmate** (HFSC/CAKE) + SW flow offload |
+| **QoS** | `sqm-scripts-nss` (`nss-zk.qos`) | **QoSmate** (HFSC/CAKE) + SW flow offload |
 | **Builds on** | schedule + push (auto, skipped if unchanged) | same — auto-rebuilds when the PR branch moves |
 | **Release tag** | `main-nss-<ts>-<run>` | `edma-<ts>-<run>` |
 
@@ -115,7 +115,7 @@ Enabled NSS modules: `kmod-qca-nss-drv`, `kmod-qca-nss-drv-bridge-mgr`, `kmod-qc
 
 ### EDMA mainline build (`edma` variant)
 
-A fully-upstreamable image built directly from [PR #22381](https://github.com/openwrt/openwrt/pull/22381) (Ansuel's `qca-edma`/`qca-ppe`/`qca-uniphy` rework on `Ansuel/openwrt @ qca-edma-rework`). No NSS firmware, no out-of-tree kernel patches. Ethernet is CPU-bound, so NAT throughput is lower than NSS, but you get a clean mainline kernel and full software CAKE/SQM. Ships **[QoSmate](https://github.com/hudra0/qosmate)** (advanced HFSC/CAKE QoS + LuCI app) — EDMA-only, since it shapes on the Linux/tc data path that NSS offload bypasses. Rebuilds automatically when the PR branch is updated (or force it via **Run workflow → variant: `edma`**).
+A fully-upstreamable image built directly from [PR #22381](https://github.com/openwrt/openwrt/pull/22381) (Ansuel's `qca-edma`/`qca-ppe`/`qca-uniphy` rework on `Ansuel/openwrt @ qca-edma-rework`). No NSS firmware, no out-of-tree kernel patches. Ethernet is CPU-bound, so NAT throughput is lower than NSS, but you get a clean mainline kernel. QoS is handled exclusively by **[QoSmate](https://github.com/hudra0/qosmate)** (advanced HFSC/CAKE QoS + LuCI app) — EDMA-only, since it shapes on the Linux/tc data path that NSS offload bypasses. Rebuilds automatically when the PR branch is updated (or force it via **Run workflow → variant: `edma`**).
 
 ### Security hardening (both variants)
 
