@@ -100,6 +100,17 @@ log::info "Updating + installing all feeds"
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 
+# 2b. Clone extra package source repos straight into package/<name>/. For packages that
+#     ship a top-level Makefile (e.g. qosmate) and so can't be added as a standard feed.
+#     The build system scans package/ automatically, so no feeds step is needed.
+while IFS=' ' read -r pkg_name pkg_url; do
+  [[ -z "$pkg_name" ]] && continue
+  log::info "Cloning package: $pkg_name <- $pkg_url"
+  rm -rf "package/$pkg_name"
+  git clone --depth 1 "$pkg_url" "package/$pkg_name"
+  rm -rf "package/$pkg_name/.git"
+done < <(yq -r ".variants[] | select(.id == \"$VARIANT\") | .packages[]? | .name + \" \" + .url" "$BUILDER_YML")
+
 # 3. Assemble .config from the shared base + variant fragment, then resolve.
 log::info "Assembling .config from devices/$DEVICE/{config, config.$VARIANT}"
 cat "$DEVICE_DIR/config" "$DEVICE_DIR/config.$VARIANT" >.config

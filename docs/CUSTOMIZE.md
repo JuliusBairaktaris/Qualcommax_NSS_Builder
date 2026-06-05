@@ -76,6 +76,21 @@ Each entry under a variant's `feeds:` becomes one `src-git <name> <url>` line in
 updated/installed individually. The corresponding `CONFIG_FEED_<name>` is then set to `n` so you
 don't bundle every package from the feed — only what you explicitly enable in `.config` ships.
 
+## Extra package repos (`packages:`)
+
+For a single-package repo that ships a **top-level Makefile** (so it can't be a feed), list it
+under a variant's `packages:` and it's `git clone`d straight into `package/<name>/` at build time:
+
+```yaml
+packages:
+  - name: qosmate
+    url: https://github.com/hudra0/qosmate.git
+```
+
+The build system scans `package/` automatically, so no feed step is needed. Then enable it in the
+variant's `config.<variant>` (e.g. `CONFIG_PACKAGE_qosmate=y`). Used by `edma` for QoSmate (which
+only works on the CPU/tc data path, not NSS hardware offload).
+
 ## Merging OpenWrt PRs
 
 A variant can list `merge_prs: [<n>, ...]`. Each PR is `git fetch`ed from the upstream repo and

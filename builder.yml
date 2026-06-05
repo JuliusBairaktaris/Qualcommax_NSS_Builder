@@ -60,5 +60,13 @@ variants:
     target: qualcommax/ipq807x
     device: xiaomi_ax3600                 # uses config + config.edma + files.edma/
     feeds: []                             # stock OpenWrt feeds only
+    packages:                             # extra package repos cloned into package/<name>/
+      # QoSmate (advanced HFSC/CAKE QoS). EDMA-only: it shapes on the Linux/tc data path,
+      # which NSS bypasses via hardware offload. Each ships a top-level Makefile, so they
+      # are cloned into package/ rather than added as feeds. Enabled in config.edma.
+      - name: qosmate
+        url: https://github.com/hudra0/qosmate.git
+      - name: luci-app-qosmate
+        url: https://github.com/hudra0/luci-app-qosmate.git
     release:
       prefix: edma
