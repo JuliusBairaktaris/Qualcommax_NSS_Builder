@@ -13,9 +13,9 @@ script="$here/../prune-releases.sh"
 fail=0
 
 run_case() {
-  local name="$1" json="$2" keep="$3" current="$4" want="$5"
+  local name="$1" json="$2" keep="$3" current="$4" want="$5" prefix="${6:-}"
   local got
-  got="$(REPO=owner/name KEEP="$keep" CURRENT_TAG="$current" \
+  got="$(REPO=owner/name KEEP="$keep" CURRENT_TAG="$current" PREFIX="$prefix" \
     DRY_RUN=1 RELEASES_JSON_STDIN=1 \
     bash "$script" <<<"$json" 2>/dev/null \
     | awk '/^  - /{print $2}' \
@@ -70,6 +70,31 @@ run_case "keep=1 of 5 deletes 4 oldest" "$five" 1 "" "r4
 r3
 r2
 r1"
+
+# Mixed-prefix releases: each variant prunes its own group independently via PREFIX.
+mixed='[
+  {"tagName":"main-nss-3","publishedAt":"2026-05-06T00:00:00Z"},
+  {"tagName":"main-nss-2","publishedAt":"2026-05-04T00:00:00Z"},
+  {"tagName":"main-nss-1","publishedAt":"2026-05-02T00:00:00Z"},
+  {"tagName":"edma-2","publishedAt":"2026-05-05T00:00:00Z"},
+  {"tagName":"edma-1","publishedAt":"2026-05-03T00:00:00Z"}
+]'
+
+# Case 7: PREFIX=main-nss keep=1 -> only older nss pruned, edma untouched.
+run_case "prefix main-nss keep=1 prunes only older nss" "$mixed" 1 "" "main-nss-2
+main-nss-1" "main-nss"
+
+# Case 8: PREFIX=edma keep=1 -> only older edma pruned, nss untouched.
+run_case "prefix edma keep=1 prunes only older edma" "$mixed" 1 "" "edma-1" "edma"
+
+# Case 9: no PREFIX -> single global group across both variants by date.
+run_case "no prefix keep=1 prunes all but newest overall" "$mixed" 1 "" "edma-1
+edma-2
+main-nss-1
+main-nss-2" ""
+
+# Case 10: PREFIX with no matching tags -> nothing pruned.
+run_case "prefix with no matches prunes nothing" "$mixed" 1 "" "" "nope"
 
 if [[ "$fail" -ne 0 ]]; then
   echo "Some tests failed." >&2

@@ -1,0 +1,7 @@
+uci -q batch << EOI
+# NSS data path: kernel packet steering and flow offload stay off — the NSS cores and
+# ECM handle acceleration. (Rest of the network defaults live in 999-QOL_config.)
+set network.globals.packet_steering='0'
+set network.@device[0].flow_offloading='0'
+set network.@device[0].flow_offloading_hw='0'
+EOI

@@ -1,36 +1,63 @@
-# Qualcommax NSS Builder — fork configuration.
+# Qualcommax Builder — fork configuration.
 #
-# This is the single file you need to edit when forking. Everything else
-# (workflow, scripts, docs) reads from here.
+# This is the single file you edit when forking. The workflow and scripts read
+# everything from here. It defines one or more build *variants*; each variant is a
+# self-contained recipe: its own upstream tree, feeds, device config fragment, and
+# release prefix.
 #
-# After editing, push to your fork. GitHub Actions will pick up the change
-# and produce a release on the next scheduled run (or via "Run workflow").
+#   - Variants with `scheduled: true` build on the cron schedule and on push to main.
+#   - Any variant can be built on demand via Actions -> Build -> "Run workflow" and
+#     picking `variant:` (an individual id, or `all`).
+#
+# After editing, push to your fork. GitHub Actions picks up the change on the next
+# run (or trigger one manually).
 
-# Upstream OpenWrt source (the tree that will be checked out and built).
-upstream:
-  repo: qosmio/openwrt-ipq
-  branch: main-nss
-
-# NSS packages source. Tracked separately so we can detect package-only updates.
-nss_packages:
-  repo: qosmio/nss-packages
-  branch: NSS-12.5-K6.x
-
-# Device id. Must match a directory under devices/<id>/ containing
-#   - config        (the OpenWrt .config file)
-#   - files/        (overlay rootfs, optional)
-device: xiaomi_ax3600
-
-# Custom feeds appended to feeds.conf during build. Order matters.
-# Each entry becomes:  src-git <name> <url>
-feeds:
-  - name: qosmio
-    url: https://github.com/qosmio/packages-extra
-  - name: sqm_nss
-    url: https://github.com/JuliusBairaktaris/sqm-scripts-nss
-
-# Release publishing settings.
+# Release publishing settings, shared by every variant.
 release:
-  prefix: main-nss            # tag = <prefix>-<UTC timestamp>-<run id>
-  keep: 2                     # number of newest releases to retain (older ones are deleted)
-  artifact_retention_days: 7  # how long the GitHub Actions artifact (separate from the release) is kept
+  keep: 2                       # newest releases to retain *per variant prefix*
+  artifact_retention_days: 7    # GitHub Actions artifact retention (separate from the release)
+
+# Build variants. Add, remove, or retarget freely — the pipeline is a matrix over this list.
+variants:
+  # --------------------------------------------------------------------------------
+  # NSS-accelerated build: qosmio openwrt-ipq fork + NSS packages.
+  # Hardware packet offload via the IPQ807x Network Subsystem cores (2+ Gbps NAT).
+  # --------------------------------------------------------------------------------
+  - id: nss
+    scheduled: true                       # built by schedule + push
+    upstream:
+      repo: qosmio/openwrt-ipq
+      ref: main-nss
+    nss_packages:                         # NSS packages tree (tracked so package-only updates trigger a build)
+      repo: qosmio/nss-packages
+      ref: NSS-12.5-K6.x
+    target: qualcommax/ipq807x            # bin/targets/<target>/ — also parameterizes the artifact path
+    device: xiaomi_ax3600                 # selects devices/<id>/ (config + config.nss + files*/)
+    feeds:                                # appended to feeds.conf as `src-git <name> <url>`
+      - name: qosmio
+        url: https://github.com/qosmio/packages-extra
+      - name: sqm_nss
+        url: https://github.com/JuliusBairaktaris/sqm-scripts-nss
+    release:
+      prefix: main-nss                    # tag = <prefix>-<UTC timestamp>-<run id>
+
+  # --------------------------------------------------------------------------------
+  # EDMA-rework build: latest mainline OpenWrt + PR #22381, NO NSS acceleration.
+  # CPU-bound ethernet via the upstreamable qca-edma driver. Manual builds only.
+  #
+  # `merge_prs` is fetched fresh and 3-way merged onto the latest `ref` every build —
+  # click "Run workflow" -> variant: edma and you get the current PR on top of the
+  # current main. No vendored patch to refresh. If main has drifted enough that the PR
+  # no longer merges, the build fails loudly (wait for the PR author to rebase).
+  # --------------------------------------------------------------------------------
+  - id: edma
+    scheduled: false                      # manual workflow_dispatch only
+    upstream:
+      repo: openwrt/openwrt
+      ref: main                           # latest mainline at build time
+    merge_prs: [22381]                    # fetch refs/pull/<n>/head and merge onto `ref`
+    target: qualcommax/ipq807x
+    device: xiaomi_ax3600                 # uses config + config.edma + files.edma/
+    feeds: []                             # stock OpenWrt feeds only
+    release:
+      prefix: edma

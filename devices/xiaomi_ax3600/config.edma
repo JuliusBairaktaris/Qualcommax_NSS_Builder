@@ -1,0 +1,16 @@
+#
+# EDMA variant fragment for the Xiaomi AX3600.
+# Appended to devices/xiaomi_ax3600/config by prepare-build.sh.
+#
+# Non-NSS, CPU-bound ethernet via the qca-edma driver from OpenWrt PR #22381 (merged
+# onto mainline at build time). No proprietary NSS firmware or kernel patches.
+#
+
+## EDMA data path. kmod-qca-edma is auto-selected by the ipq807x target DEFAULT_PACKAGES
+## once the PR is merged; listing it is belt-and-suspenders (dropped if ever absent).
+CONFIG_PACKAGE_kmod-qca-edma=y
+
+## Standard CPU SQM (cake) + software flow offload — worth it on a CPU-bound data path.
+CONFIG_PACKAGE_sqm-scripts=y
+CONFIG_PACKAGE_kmod-sched-cake=y
+CONFIG_PACKAGE_kmod-nft-offload=y
