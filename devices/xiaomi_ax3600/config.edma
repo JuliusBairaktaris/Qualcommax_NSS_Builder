@@ -16,7 +16,16 @@ CONFIG_PACKAGE_kmod-sched-cake=y
 CONFIG_PACKAGE_kmod-nft-offload=y
 
 ## QoSmate — advanced HFSC/CAKE QoS + LuCI app (cloned into package/ by prepare-build).
-## EDMA-only: it shapes on the Linux/tc data path, which NSS bypasses. Backend deps
-## (tc-full, kmod-veth/ifb/netem/sched-*, ...) are pulled in via qosmate's DEPENDS.
+## EDMA-only: it shapes on the Linux/tc data path, which NSS bypasses.
 CONFIG_PACKAGE_qosmate=y
 CONFIG_PACKAGE_luci-app-qosmate=y
+## QoSmate's backend deps, listed explicitly so they're guaranteed in the image
+## (matches qosmate's DEPENDS; kmod-sched-cake is already enabled above).
+CONFIG_PACKAGE_kmod-sched=y
+CONFIG_PACKAGE_kmod-sched-red=y
+CONFIG_PACKAGE_kmod-sched-ctinfo=y
+CONFIG_PACKAGE_kmod-netem=y
+CONFIG_PACKAGE_kmod-veth=y
+CONFIG_PACKAGE_kmod-ifb=y
+CONFIG_PACKAGE_tc-full=y
+CONFIG_PACKAGE_ip-full=y
