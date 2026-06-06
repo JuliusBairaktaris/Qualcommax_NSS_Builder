@@ -33,7 +33,7 @@ variants:
       repo: qosmio/nss-packages
       ref: NSS-12.5-K6.x
     target: qualcommax/ipq807x            # bin/targets/<target>/ — also parameterizes the artifact path
-    device: xiaomi_ax3600                 # selects devices/<id>/ (config + config.nss + files*/)
+    device: xiaomi_ax3600-stock                 # selects devices/<id>/ (config + config.nss + files*/)
     feeds:                                # appended to feeds.conf as `src-git <name> <url>`
       - name: qosmio
         url: https://github.com/qosmio/packages-extra
