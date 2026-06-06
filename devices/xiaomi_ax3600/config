@@ -1,6 +1,9 @@
 #
-# Automatically generated file; DO NOT EDIT.
-# OpenWrt Configuration
+# Shared base config for the Xiaomi AX3600 (IPQ8071A).
+#
+# prepare-build.sh concatenates this with devices/xiaomi_ax3600/config.<variant>
+# and runs `make defconfig`. Variant-specific package selection (NSS vs EDMA) lives
+# in the fragments; everything common to both images lives here.
 #
 
 ## Target Platform
@@ -10,20 +13,6 @@ CONFIG_TARGET_qualcommax_ipq807x_DEVICE_xiaomi_ax3600=y
 CONFIG_ATH11K_MEM_PROFILE_512M=y
 CONFIG_IPQ_MEM_PROFILE_512=y
 CONFIG_KERNEL_IPQ_MEM_PROFILE=512
-
-## Essential NSS Configuration
-CONFIG_ATH11K_NSS_SUPPORT=y
-CONFIG_ATH11K_NSS_MESH_SUPPORT=y
-CONFIG_PACKAGE_MAC80211_NSS_SUPPORT=y
-CONFIG_PACKAGE_kmod-qca-nss-drv=y
-CONFIG_PACKAGE_kmod-qca-nss-drv-bridge-mgr=y
-CONFIG_PACKAGE_kmod-qca-nss-ecm=y
-
-## Additional NSS Configuration
-CONFIG_PACKAGE_kmod-qca-nss-drv-pppoe=y
-CONFIG_PACKAGE_kmod-qca-nss-drv-vlan-mgr=y
-CONFIG_PACKAGE_kmod-qca-mcs=y
-CONFIG_NSS_FIRMWARE_VERSION_12_5=y
 
 ## Disable Ath10k
 CONFIG_ATH10K-CT_LEDS=n
@@ -93,9 +82,6 @@ CONFIG_LIBCURL_OPENSSL=y
 CONFIG_PACKAGE_luci=y
 CONFIG_PACKAGE_luci-app-firewall=y
 CONFIG_PACKAGE_wpad-openssl=y
-CONFIG_PACKAGE_luci-mod-status-nss=y
-CONFIG_PACKAGE_luci-app-sqm=y
-CONFIG_PACKAGE_sqm-scripts-nss=y
 
 ## Redundant Default Packages
 CONFIG_PACKAGE_kmod-phy-aquantia=n
@@ -113,7 +99,3 @@ CONFIG_ATH11K_DEBUGFS_HTT_STATS=n
 CONFIG_ATH11K_DEBUGFS_STA=n
 # Disables thermal throttling support for ath11k.
 CONFIG_ATH11K_THERMAL=n
-
-## Prevent Custom Feeds
-CONFIG_FEED_nss_packages=n
-CONFIG_FEED_sqm_scripts_nss=n

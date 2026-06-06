@@ -6,6 +6,9 @@
 #   KEEP         positive integer (number of newest releases to retain)
 #
 # Optional env:
+#   PREFIX       if set, only consider releases whose tag starts with "<PREFIX>-"
+#                (keep the newest $KEEP within that group). Lets each build variant
+#                prune its own releases independently.
 #   CURRENT_TAG  tag just published; never deleted even if it falls outside the keep window
 #   DRY_RUN      "1" prints what would be deleted and exits 0
 #   GH_TOKEN     forwarded to gh CLI (set by GitHub Actions automatically)
@@ -23,6 +26,7 @@ source "$(dirname -- "$0")/lib/log.sh"
 : "${KEEP:?KEEP env var required (positive integer)}"
 
 CURRENT_TAG="${CURRENT_TAG:-}"
+PREFIX="${PREFIX:-}"
 DRY_RUN="${DRY_RUN:-0}"
 RELEASES_JSON_STDIN="${RELEASES_JSON_STDIN:-0}"
 
@@ -40,6 +44,12 @@ else
     --json tagName,publishedAt)"
 fi
 
+# Restrict to this variant's release group when a PREFIX is given.
+if [[ -n "$PREFIX" ]]; then
+  releases_json="$(jq --arg p "$PREFIX" \
+    '[ .[] | select(.tagName | startswith($p + "-")) ]' <<<"$releases_json")"
+fi
+
 # Sort newest-first by publishedAt, drop the newest $KEEP, defensively exclude $CURRENT_TAG.
 mapfile -t to_delete < <(
   jq -r \
@@ -50,7 +60,7 @@ mapfile -t to_delete < <(
 )
 
 total="$(jq 'length' <<<"$releases_json")"
-log::info "Found $total non-draft release(s); keeping newest $KEEP."
+log::info "Found $total non-draft release(s)${PREFIX:+ (prefix ${PREFIX}-)}; keeping newest $KEEP."
 
 if [[ ${#to_delete[@]} -eq 0 ]]; then
   log::info "Nothing to prune."
