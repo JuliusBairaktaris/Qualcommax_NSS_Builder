@@ -27,7 +27,7 @@ variants:
   # --------------------------------------------------------------------------------
   - id: nss
     upstream:
-      repo: qosmio/openwrt-ipq
+      repo: LiBwrt/openwrt-6.x
       ref: main-nss
     nss_packages:                         # NSS packages tree (tracked so package-only updates trigger a build)
       repo: qosmio/nss-packages
