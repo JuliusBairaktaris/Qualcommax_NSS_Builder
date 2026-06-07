@@ -55,8 +55,8 @@ variants:
   # --------------------------------------------------------------------------------
   - id: edma
     upstream:
-      repo: Ansuel/openwrt                # PR #22381 author's fork
-      ref: qca-edma-rework                # the PR branch, built directly (branch tip each run)
+      repo: immortalwrt/immortalwrt                # PR #22381 author's fork
+      ref: master                # the PR branch, built directly (branch tip each run)
     target: qualcommax/ipq807x
     device: xiaomi_ax3600                 # uses config + config.edma + files.edma/
     feeds: []                             # stock OpenWrt feeds only
