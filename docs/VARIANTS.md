@@ -2,59 +2,39 @@
 
 A **variant** is one self-contained build recipe: its own upstream tree, feeds, device
 config fragment, and release prefix. `builder.yml` declares a list of them, and the
-`build` workflow runs a matrix over that list. The two shipped variants are `nss` and
-`edma`; they share everything except the network data path.
+`build` workflow runs a matrix over that list. The shipped variant is `edma-nss`.
 
-## NSS vs EDMA
+## The `edma-nss` variant
 
-| | `nss` | `edma` |
-|---|---|---|
-| Upstream | `qosmio/openwrt-ipq` @ `main-nss` | `openwrt/openwrt` @ `main` + PR #22381 |
-| Ethernet driver | NSS data plane (hardware offload) | `qca-edma` (CPU-bound) |
-| Proprietary code | NSS firmware + invasive kernel patches | none — all upstreamable |
-| Throughput | 2+ Gbps NAT, very low CPU | CPU-limited, but full software CAKE |
-| QoS | `sqm-scripts-nss`, `nss-zk.qos` | [QoSmate](https://github.com/hudra0/qosmate) (HFSC/CAKE) + SW flow offload |
-| Maintenance | tracks a downstream fork | tracks the PR author's branch |
-| When it builds | schedule + push (auto) | schedule + push (auto) — rebuilds when the branch moves |
+| | `edma-nss` |
+|---|---|
+| OpenWrt tree | [`JuliusBairaktaris/openwrt-nss-edma`](https://github.com/JuliusBairaktaris/openwrt-nss-edma) @ `nss-edma-rework` |
+| NSS packages | [`JuliusBairaktaris/nss-packages`](https://github.com/JuliusBairaktaris/nss-packages) @ `edma-nss` (added as the `nss` feed) |
+| Ethernet driver | upstream `qca-edma`/`qca-ppe` (PR #22381), firmware data plane attached at runtime |
+| Offload | ECM NAT/PPPoE, NSS SQM (`nss-edma.qos`), ath11k Wi-Fi offload (wifili) |
+| When it builds | schedule + push (auto) — rebuilds when either source tree moves |
 
-**Why NSS?** Maximum throughput. The IPQ807x NSS cores offload NAT/bridge/VLAN/QoS, so a
-1 Gbps+ symmetric line with SQM barely touches the ARM cores. The cost is proprietary NSS
-firmware and a heavily-patched kernel that only exists in downstream forks.
+The tree is OpenWrt `main` + the [PR #22381](https://github.com/openwrt/openwrt/pull/22381)
+EDMA rework + the NSS integration series (data-plane glue, device tree, Wi-Fi offload patch
+sets) layered on top — a linear, rebased branch, so it is checked out and built as-is with
+no PR merging at build time. `check-updates` tracks **both** the OpenWrt tree and the
+nss-packages feed: a push to either triggers a rebuild (skipped while both are unchanged).
 
-**Why EDMA?** A clean, mainline kernel with no binary blobs or out-of-tree patches — easier
-to trust and to forward-port. Ethernet runs on the CPU via the upstreamable `qca-edma`
-driver, so NAT throughput is lower than NSS (IPQ807x has no PPE hardware to offload to), but
-software CAKE gives you real bufferbloat control. Good for people who value an auditable,
-upstream-tracking image over peak Gbps.
+Architecture, runtime model, measured results and limitations are documented in the
+[openwrt-nss-edma wiki](https://github.com/JuliusBairaktaris/openwrt-nss-edma/wiki).
+The runtime contract in short: the image **boots on the plain host stack** (NSS modules
+load but stay inert; Wi-Fi starts in host mode), and `/usr/sbin/nss-up` — run from
+`rc.local`, shipped in `files.edma-nss/` — arms the data plane, boots the NSS firmware,
+moves the radios onto the wifili path and starts ECM + SQM. A reboot always returns to
+the host-only stack.
 
-They are **mutually exclusive** — NSS patches the kernel networking stack invasively, so a
-single image is one or the other, never both.
-
-## How EDMA tracks PR #22381
-
-The `edma` variant builds the PR author's branch **directly**:
-
-```yaml
-upstream:
-  repo: Ansuel/openwrt    # PR #22381 author's fork
-  ref: qca-edma-rework    # the PR branch tip, resolved to a SHA each run
-```
-
-`check-updates` resolves the branch tip to a SHA and `build` checks it out as-is — no merge,
-no patch. This is the same mechanism NSS uses, so EDMA **rebuilds automatically whenever Ansuel
-pushes** to the branch (and is skipped while the tip is unchanged). You can still force a build
-with **Run workflow → variant: edma**.
-
-**Why not merge the PR onto latest `main`?** We tried that first and it broke: the PR pins
-out-of-tree drivers (`qca-ppe`, `qca-uniphy`) against a specific state of OpenWrt's phylink PCS
-patches. When `main` moved its phylink ahead of the PR (renaming `phylink_config.available_pcs`
-→ `num_available_pcs`), the merged tree paired a *new* phylink with the PR's *old* driver pins
-and failed to compile. The PR author's branch keeps both in lockstep, so building it directly
-just works. Once PR #22381 is merged upstream, point `repo`/`ref` at `openwrt/openwrt` + `main`.
+The historical `nss` (qosmio `openwrt-ipq` tree) and `edma` (PR #22381 without NSS)
+variants were retired when `edma-nss` superseded both; their recipes live in the git
+history if you want to resurrect one as a custom variant.
 
 `merge_prs: [<n>, ...]` is still supported as a general mechanism for any variant — each listed
 PR is fetched from the variant's `upstream.repo` and `git merge --no-commit`'d onto `ref` at
-build time (kept uncommitted so `SOURCE_DATE_EPOCH` stays pinned). `edma` no longer uses it.
+build time (kept uncommitted so `SOURCE_DATE_EPOCH` stays pinned). `edma-nss` does not use it.
 
 ## Adding a variant
 
@@ -97,4 +77,4 @@ build time (kept uncommitted so `SOURCE_DATE_EPOCH` stays pinned). `edma` no lon
 
 Each variant's releases are tagged `<prefix>-<timestamp>-<run id>` and pruned independently:
 `scripts/prune-releases.sh` keeps the newest `release.keep` releases **within each prefix**,
-so the NSS and EDMA release histories never evict each other.
+so each variant's release history is pruned independently.

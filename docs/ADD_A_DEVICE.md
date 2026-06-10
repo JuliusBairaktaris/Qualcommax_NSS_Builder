@@ -12,9 +12,9 @@ The repo ships with `devices/xiaomi_ax3600/` as the reference. Each device has a
 2. **Generate the `.config` for that device.** Start from an existing variant so you diff against
    the same tree it will build on:
    ```sh
-   git clone --branch main-nss https://github.com/qosmio/openwrt-ipq openwrt
+   git clone --branch nss-edma-rework https://github.com/JuliusBairaktaris/openwrt-nss-edma openwrt
    cd openwrt
-   cat ../devices/xiaomi_ax3600/config ../devices/xiaomi_ax3600/config.nss > .config
+   cat ../devices/xiaomi_ax3600/config ../devices/xiaomi_ax3600/config.edma-nss > .config
    make menuconfig          # set Target Profile to your device, adjust packages, save
    ./scripts/diffconfig.sh > /tmp/full.config
    ```
@@ -27,7 +27,7 @@ The repo ships with `devices/xiaomi_ax3600/` as the reference. Each device has a
    ```sh
    mkdir -p devices/<id>
    # devices/<id>/config         <- shared base
-   # devices/<id>/config.nss     <- NSS-only lines
+   # devices/<id>/config.edma-nss     <- variant-only lines
    # devices/<id>/config.edma    <- EDMA-only lines
    ```
    Only create the fragments for variants this device should build.

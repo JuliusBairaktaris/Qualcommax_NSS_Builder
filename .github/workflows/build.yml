@@ -13,8 +13,7 @@ on:
         type: choice
         options:
           - all
-          - nss
-          - edma
+          - edma-nss
         default: all
   push:
     branches: [main]

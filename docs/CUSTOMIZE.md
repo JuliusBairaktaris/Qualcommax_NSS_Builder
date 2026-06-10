@@ -12,10 +12,10 @@ release:
   artifact_retention_days: 7         # Actions artifact retention (separate from the release)
 
 variants:
-  - id: nss                          # also names the config fragment: config.nss
+  - id: edma-nss                     # also names the config fragment: config.edma-nss
     # scheduled: false               # optional opt-out; omitted = builds on schedule + push
     upstream:
-      repo: qosmio/openwrt-ipq       # OpenWrt source tree
+      repo: JuliusBairaktaris/openwrt-nss-edma  # OpenWrt source tree
       ref: main-nss                  # branch, tag, or 40-char SHA
     nss_packages:                    # optional — only variants that need the NSS feed
       repo: qosmio/nss-packages
@@ -64,10 +64,10 @@ To change something, edit in a real OpenWrt checkout and diff back into the righ
 
 ```sh
 # Shared change -> goes in the base:
-cat devices/xiaomi_ax3600/config devices/xiaomi_ax3600/config.nss > openwrt/.config
+cat devices/xiaomi_ax3600/config devices/xiaomi_ax3600/config.edma-nss > openwrt/.config
 cd openwrt && make menuconfig
 ./scripts/diffconfig.sh > /tmp/full.config
-# then move new shared lines into devices/<id>/config and NSS-only lines into config.nss
+# then move new shared lines into devices/<id>/config and variant-only lines into config.edma-nss
 ```
 
 Symbols that don't exist on a given upstream are dropped silently by `make defconfig` — that's
