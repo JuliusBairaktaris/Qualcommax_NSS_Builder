@@ -20,7 +20,7 @@ permissions:
 jobs:
   actionlint:
     name: actionlint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
@@ -33,7 +33,7 @@ jobs:
 
   shellcheck:
     name: shellcheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
@@ -46,7 +46,7 @@ jobs:
 
   yamllint:
     name: yamllint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
@@ -60,7 +60,7 @@ jobs:
 
   prune-tests:
     name: prune-releases tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
