@@ -45,7 +45,7 @@ jobs:
       artifact_retention_days: ${{ steps.cfg.outputs.artifact_retention_days }}
       prefixes: ${{ steps.cfg.outputs.prefixes }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - id: cfg
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -65,7 +65,7 @@ jobs:
       matrix: ${{ steps.check.outputs.matrix }}
       has_builds: ${{ steps.check.outputs.has_builds }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - id: check
         env:
           CONFIG_MATRIX: ${{ needs.config.outputs.matrix }}
@@ -100,7 +100,7 @@ jobs:
             bzip2 g++ gawk gcc git glibc-source libncurses-dev make rsync
 
       - name: Checkout OpenWrt source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ matrix.upstream_repo }}
           ref: ${{ matrix.upstream_sha }}
@@ -108,7 +108,7 @@ jobs:
           path: openwrt
 
       - name: Checkout builder repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: builder
 
@@ -215,7 +215,7 @@ jobs:
       KEEP: ${{ needs.config.outputs.release_keep }}
       PREFIXES: ${{ needs.config.outputs.prefixes }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Prune each variant prefix
         run: |
           set -euo pipefail
