@@ -1,36 +1,50 @@
-# Qualcommax NSS Builder — fork configuration.
+# Qualcommax Builder — fork configuration.
 #
-# This is the single file you need to edit when forking. Everything else
-# (workflow, scripts, docs) reads from here.
+# This is the single file you edit when forking. The workflow and scripts read
+# everything from here. It defines one or more build *variants*; each variant is a
+# self-contained recipe: its own upstream tree, feeds, device config fragment, and
+# release prefix.
 #
-# After editing, push to your fork. GitHub Actions will pick up the change
-# and produce a release on the next scheduled run (or via "Run workflow").
+#   - Every variant builds on the cron schedule and on push to main, and is skipped
+#     automatically if its upstream hasn't changed since the last release. Set
+#     `scheduled: false` on a variant to make it manual-only instead.
+#   - You can also force a build from Actions -> Build -> "Run workflow" and picking
+#     `variant:` (an individual id, or `all`).
+#
+# After editing, push to your fork. GitHub Actions picks up the change on the next
+# run (or trigger one manually).
 
-# Upstream OpenWrt source (the tree that will be checked out and built).
-upstream:
-  repo: qosmio/openwrt-ipq
-  branch: main-nss
-
-# NSS packages source. Tracked separately so we can detect package-only updates.
-nss_packages:
-  repo: qosmio/nss-packages
-  branch: NSS-12.5-K6.x
-
-# Device id. Must match a directory under devices/<id>/ containing
-#   - config        (the OpenWrt .config file)
-#   - files/        (overlay rootfs, optional)
-device: xiaomi_ax3600
-
-# Custom feeds appended to feeds.conf during build. Order matters.
-# Each entry becomes:  src-git <name> <url>
-feeds:
-  - name: qosmio
-    url: https://github.com/qosmio/packages-extra
-  - name: sqm_nss
-    url: https://github.com/JuliusBairaktaris/sqm-scripts-nss
-
-# Release publishing settings.
+# Release publishing settings, shared by every variant.
 release:
-  prefix: main-nss            # tag = <prefix>-<UTC timestamp>-<run id>
-  keep: 2                     # number of newest releases to retain (older ones are deleted)
-  artifact_retention_days: 7  # how long the GitHub Actions artifact (separate from the release) is kept
+  keep: 2                       # newest releases to retain *per variant prefix*
+  artifact_retention_days: 7    # GitHub Actions artifact retention (separate from the release)
+
+# Build variants. Add, remove, or retarget freely — the pipeline is a matrix over this list.
+variants:
+  # --------------------------------------------------------------------------------
+  # NSS offload on the upstream EDMA stack: openwrt-nss-edma + nss-packages.
+  #
+  # Qualcomm NSS hardware offloading (ECM NAT/PPPoE, NSS SQM, ath11k Wi-Fi offload)
+  # running on OpenWrt main's upstream qca-edma/qca-ppe DSA ethernet drivers
+  # (openwrt/openwrt#22381) — not on the vendor qca-nss-dp/qca-ssdk pairing.
+  # Architecture and operation: https://github.com/JuliusBairaktaris/openwrt-nss-edma/wiki
+  #
+  # The image boots on the plain host stack (Wi-Fi in host mode); /usr/sbin/nss-up
+  # (run from rc.local) arms the NSS data plane, boots the firmware, moves the
+  # radios onto the wifili data path and starts ECM + SQM. A reboot always returns
+  # to the stock host-only stack — that is the universal recovery path.
+  # --------------------------------------------------------------------------------
+  - id: edma-nss
+    upstream:
+      repo: JuliusBairaktaris/openwrt-nss-edma
+      ref: nss-edma-rework
+    nss_packages:                         # NSS packages tree (tracked so package-only updates trigger a build)
+      repo: JuliusBairaktaris/nss-packages
+      ref: edma-nss
+    target: qualcommax/ipq807x            # bin/targets/<target>/ — also parameterizes the artifact path
+    device: xiaomi_ax3600                 # selects devices/<id>/ (config + config.edma-nss + files*/)
+    feeds:                                # appended to feeds.conf as `src-git <name> <url>`
+      - name: nss
+        url: https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss
+    release:
+      prefix: edma-nss                    # tag = <prefix>-<UTC timestamp>-<run id>

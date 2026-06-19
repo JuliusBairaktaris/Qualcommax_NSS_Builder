@@ -1,0 +1,30 @@
+#
+# EDMA-NSS variant fragment for the Xiaomi AX3600.
+# Appended to devices/xiaomi_ax3600/config by prepare-build.sh.
+#
+# NSS hardware offload on the upstream qca-edma/qca-ppe ethernet drivers:
+# tree JuliusBairaktaris/openwrt-nss-edma (nss-edma-rework) + feed
+# JuliusBairaktaris/nss-packages (edma-nss). Docs:
+# https://github.com/JuliusBairaktaris/openwrt-nss-edma/wiki
+#
+
+## NSS data plane + connection offload (ECM, PPPoE).
+## kmod-qca-ppe-nss (the data-plane glue) is pulled in by kmod-qca-nss-drv.
+CONFIG_PACKAGE_kmod-qca-nss-drv=y
+CONFIG_PACKAGE_kmod-qca-nss-ecm=y
+CONFIG_PACKAGE_kmod-qca-nss-drv-pppoe=y
+CONFIG_NSS_FIRMWARE_VERSION_12_5=y
+# AX3600 = 512MB RAM: NSS MEDIUM memory profile (HIGH is the ipq807x default and wrong here)
+CONFIG_NSS_MEM_PROFILE_MEDIUM=y
+
+## ath11k NSS Wi-Fi offload (wifili). Boots host-mode (nss_offload=0,
+## frame_mode=2); /usr/sbin/nss-up moves the radios onto the NSS data path.
+CONFIG_ATH11K_NSS_SUPPORT=y
+CONFIG_PACKAGE_MAC80211_NSS_SUPPORT=y
+CONFIG_ATH11K_MEM_PROFILE_512M=y
+
+## NSS qdisc/SQM (nss-edma.qos) + the SQM LuCI app
+CONFIG_PACKAGE_kmod-qca-nss-drv-qdisc=y
+CONFIG_PACKAGE_kmod-qca-nss-drv-igs=y
+CONFIG_PACKAGE_sqm-scripts-nss=y
+CONFIG_PACKAGE_luci-app-sqm=y

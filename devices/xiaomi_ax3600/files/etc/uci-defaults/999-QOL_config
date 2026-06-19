@@ -30,9 +30,16 @@ set wireless.radio1.country='CA'
 set firewall.@zone[1].input='DROP'
 set firewall.@zone[1].forward='DROP'
 
-# Network settings
-set network.globals.packet_steering='0'
-set network.@device[0].flow_offloading='0'
-set network.@device[0].flow_offloading_hw='0'
+# Network settings (BCP38 anti-spoofing on WAN).
+# Packet steering / flow offload are variant-specific — see files.<variant>/etc/uci-defaults/998-net-offload.
+set bcp38.cfg018e45.enabled='1'
+set bcp38.cfg018e45.interface='wan'
+
+# uHTTPd settings
+set uhttpd.main.redirect_https='1'
+
+# OpenSSL OQS provider
+set openssl.oqsprovider=provider
+set openssl.oqsprovider.enabled='1'
 
 EOI

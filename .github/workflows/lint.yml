@@ -20,10 +20,10 @@ permissions:
 jobs:
   actionlint:
     name: actionlint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Run actionlint
         run: |
           set -euo pipefail
@@ -33,10 +33,10 @@ jobs:
 
   shellcheck:
     name: shellcheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Run shellcheck
         run: |
           set -euo pipefail
@@ -46,10 +46,10 @@ jobs:
 
   yamllint:
     name: yamllint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Run yamllint
         run: |
           set -euo pipefail
@@ -60,10 +60,10 @@ jobs:
 
   prune-tests:
     name: prune-releases tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends jq
       - name: Run tests

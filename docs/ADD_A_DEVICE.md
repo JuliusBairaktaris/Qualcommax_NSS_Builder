@@ -1,55 +1,69 @@
 # Adding a new device
 
-The repo ships with `devices/xiaomi_ax3600/` as the reference. Adding a second device is a directory copy plus a one-line edit.
+The repo ships with `devices/xiaomi_ax3600/` as the reference. Each device has a shared base
+`config` plus a small `config.<variant>` fragment per variant it should build (see
+[`VARIANTS.md`](VARIANTS.md)). Adding a device is a directory copy plus a `builder.yml` edit.
 
 ## Steps
 
-1. **Pick an id.** Use the OpenWrt board id (`make menuconfig` -> Target Profile shows it). Examples: `xiaomi_ax9000`, `dynalink_dl-wrx36`, `redmi_ax6`. Lowercase, underscores.
+1. **Pick an id.** Use the OpenWrt board id (`make menuconfig` → Target Profile shows it).
+   Examples: `xiaomi_ax9000`, `dynalink_dl-wrx36`, `redmi_ax6`. Lowercase, underscores.
 
-2. **Generate the `.config` for that device.**
+2. **Generate the `.config` for that device.** Start from an existing variant so you diff against
+   the same tree it will build on:
    ```sh
-   git clone --branch <upstream-branch> https://github.com/<upstream-repo> openwrt
+   git clone --branch nss-edma-rework https://github.com/JuliusBairaktaris/openwrt-nss-edma openwrt
    cd openwrt
-   make menuconfig
-   # Set Target Profile to your device, save, exit.
-   ./scripts/diffconfig.sh > ../my-device.config
+   cat ../devices/xiaomi_ax3600/config ../devices/xiaomi_ax3600/config.edma-nss > .config
+   make menuconfig          # set Target Profile to your device, adjust packages, save
+   ./scripts/diffconfig.sh > /tmp/full.config
    ```
-   `diffconfig.sh` produces a minimal `.config` containing only the deltas from the default — that's exactly what this template wants.
+   `diffconfig.sh` produces a minimal `.config` (only deltas from the default) — exactly what this
+   template wants.
 
-3. **Drop it in.**
+3. **Split it into base + fragment(s).** Put device-wide, variant-agnostic lines (target profile,
+   toolchain, hardening, packages) in `config`; put variant-only lines (NSS modules, or EDMA/cake)
+   in `config.<variant>`:
    ```sh
-   mkdir -p devices/<id>/files
-   mv ../my-device.config devices/<id>/config
+   mkdir -p devices/<id>
+   # devices/<id>/config         <- shared base
+   # devices/<id>/config.edma-nss     <- variant-only lines
+   # devices/<id>/config.edma    <- EDMA-only lines
    ```
+   Only create the fragments for variants this device should build.
 
-4. **(Optional) Add a rootfs overlay.** Anything under `devices/<id>/files/` is copied to the image root. Common entries:
-   - `etc/uci-defaults/99-my-defaults` — runs once on first boot
-   - `etc/ssh/sshd_config` — gets `chmod 0600` automatically
-   - `etc/rc.local` — boot-time hook
+4. **(Optional) Add rootfs overlays.** Copied to the image root, later layer wins:
+   - `devices/<id>/files/` — both variants (e.g. `etc/ssh/sshd_config` → `chmod 0600`,
+     `etc/uci-defaults/99-*`, `etc/rc.local`)
+   - `devices/<id>/files.<variant>/` — variant-specific (e.g. SQM + flow-offload defaults)
+   - `common/files/` — shared by every device
 
-   Files shared by all devices go in `common/files/` instead.
-
-5. **Switch the active device.**
+5. **Point a variant at the device** in `builder.yml`:
    ```yaml
-   # builder.yml
-   device: <id>
+   variants:
+     - id: nss
+       device: <id>
+       ...
    ```
+   Set `target:` to the device's `bin/targets/<family>/<subtarget>` if it isn't `qualcommax/ipq807x`.
 
-6. **Push.** The build runs immediately on push (and every 2 hours on cron).
+6. **Build.** Push (NSS builds automatically) or **Run workflow** to pick a variant.
 
 ## Verifying locally before push
 
-You can sanity-check the config-loading without a full compile:
-
 ```sh
-yq -V                             # should print yq v4.x
-bash scripts/load-config.sh       # prints resolved config, exits 0
+yq -V                                                          # yq v4.x
+EVENT_NAME=workflow_dispatch VARIANT_INPUT=all \
+  bash scripts/load-config.sh                                  # prints the matrix, exits 0
 ```
 
-If `load-config.sh` fails because `devices/<id>/config` is missing, you got the id wrong.
+`load-config.sh` fails fast if `devices/<id>/config` or a referenced `config.<variant>` fragment is
+missing — that usually means the id is wrong or you forgot a fragment.
 
 ## Tips
 
-- **Don't** check in the full upstream `.config` (~3000 lines). Use `diffconfig.sh` output. It survives upstream churn far better.
-- **Do** comment package additions in `devices/<id>/config` so future-you knows why a package is pinned.
-- The artifact path in `build.yml` is `openwrt/bin/targets/qualcommax/ipq807x` — adjust if your device targets a different SoC family.
+- **Don't** check in the full upstream `.config` (~3000 lines). Use `diffconfig.sh` output — it
+  survives upstream churn far better.
+- **Do** comment package additions so future-you knows why a package is pinned.
+- The artifact/release path follows each variant's `target:` in `builder.yml`, so a device on a
+  different SoC family just needs the right `target:` — no workflow edits.

@@ -1,0 +1,56 @@
+#!/bin/sh
+# Bring up the FULL NSS stack (M5): fw data plane + ath11k Wi-Fi offload +
+# ECM offload + PPPoE connmgr + SQM. Run after boot; reboot to undo.
+#
+# M5 boot model: ath11k carries symbol deps on qca-nss-drv, so kmodloader
+# loads drv at boot, but its probe is DEFERRED by the qca-ppe-nss gate.
+# Writing fw_mask boots the firmware synchronously (the glue re-attaches
+# the deferred core devices inside the write).
+set -e
+FWM=/sys/kernel/debug/qca-ppe-nss/fw_mask
+modprobe qca-ppe-nss 2>/dev/null || true
+[ "$(cat $FWM 2>/dev/null)" = "0x0" ] || { echo "already armed or glue missing - reboot first"; exit 1; }
+modprobe qca-nss-drv 2>/dev/null || true
+
+echo 0x3c > $FWM
+[ "$(cat $FWM)" = "0x3c" ] || { echo "arming failed, fw not booted"; exit 1; }
+sleep 8
+grep -E "if_num [2-5]:" /sys/kernel/debug/qca-ppe-nss/status
+
+sysctl -w net.netfilter.nf_conntrack_events=1
+sysctl -w net.netfilter.nf_conntrack_tcp_no_window_check=1
+modprobe ecm front_end_selection=1
+sleep 2
+echo 1 > /sys/kernel/debug/ecm/ecm_classifier_default/accel_delay_pkts
+modprobe qca-nss-pppoe
+
+# M5: Wi-Fi offload. Flip nss_offload and rebind the radio so ath11k
+# re-registers against the NSS data path (wifili); pbuf re-applies the
+# 512MB n2h pool tuning and runs `wifi up`. If the radios fail to
+# register, fall back to host-mode Wi-Fi (the recovery/escape path).
+if [ -w /sys/module/ath11k/parameters/nss_offload ]; then
+  wifi down   # tear down hostapd ifaces first (pending-ack WARN at unbind otherwise)
+  sleep 3
+  echo 1 > /sys/module/ath11k/parameters/nss_offload
+  echo c000000.wifi > /sys/bus/platform/drivers/ath11k/unbind
+  sleep 3
+  echo c000000.wifi > /sys/bus/platform/drivers/ath11k/bind
+  sleep 12
+  if [ "$(ls /sys/class/ieee80211/ 2>/dev/null | wc -l)" -lt 2 ]; then
+    echo "WIFI OFFLOAD FAILED - falling back to host-mode wifi"
+    echo 0 > /sys/module/ath11k/parameters/nss_offload
+    echo c000000.wifi > /sys/bus/platform/drivers/ath11k/unbind 2>/dev/null
+    sleep 3
+    echo c000000.wifi > /sys/bus/platform/drivers/ath11k/bind
+    sleep 10
+  fi
+  /etc/init.d/qca-nss-pbuf start
+fi
+
+ifup wan
+sleep 20
+echo 1 > /sys/kernel/debug/ecm/ecm_db/defunct_all 2>/dev/null
+echo f > /proc/net/nf_conntrack 2>/dev/null
+echo "NSS+wifi+ECM up. accel counts:"
+cat /sys/kernel/debug/ecm/ecm_nss_ipv4/accelerated_count /sys/kernel/debug/ecm/ecm_nss_ipv6/accelerated_count
+/etc/init.d/sqm enabled && /etc/init.d/sqm restart || true

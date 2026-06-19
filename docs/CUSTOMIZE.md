@@ -1,62 +1,119 @@
 # Customizing the build
 
-All knobs live in **[`builder.yml`](../builder.yml)**, **[`devices/<id>/config`](../devices/xiaomi_ax3600/config)**, and the overlay directories. This page shows what each knob does.
+All knobs live in **[`builder.yml`](../builder.yml)**, **[`devices/<id>/config`](../devices/xiaomi_ax3600/config)**
+(+ the `config.<variant>` fragments), and the overlay directories. This page shows what each
+knob does. For the NSS-vs-EDMA story and how to add a variant, see [`VARIANTS.md`](VARIANTS.md).
 
 ## `builder.yml`
 
 ```yaml
-upstream:
-  repo: qosmio/openwrt-ipq           # OpenWrt source tree
-  branch: main-nss
-
-nss_packages:
-  repo: qosmio/nss-packages          # NSS packages tree (tracked separately so we can detect package-only updates)
-  branch: NSS-12.5-K6.x
-
-device: xiaomi_ax3600                # selects devices/<id>/
-
-feeds:                               # appended to feeds.conf as src-git lines
-  - name: qosmio
-    url: https://github.com/qosmio/packages-extra
-  - name: sqm_nss
-    url: https://github.com/JuliusBairaktaris/sqm-scripts-nss
-
 release:
-  prefix: main-nss                   # tag = <prefix>-<UTC timestamp>-<run id>
-  keep: 2                            # newest N releases retained; older ones deleted
-  artifact_retention_days: 7         # GitHub Actions artifact retention (separate from the release)
+  keep: 2                            # newest releases retained *per variant prefix*
+  artifact_retention_days: 7         # Actions artifact retention (separate from the release)
+
+variants:
+  - id: edma-nss                     # also names the config fragment: config.edma-nss
+    # scheduled: false               # optional opt-out; omitted = builds on schedule + push
+    upstream:
+      repo: JuliusBairaktaris/openwrt-nss-edma  # OpenWrt source tree
+      ref: main-nss                  # branch, tag, or 40-char SHA
+    nss_packages:                    # optional — only variants that need the NSS feed
+      repo: qosmio/nss-packages
+      ref: NSS-12.5-K6.x
+    target: qualcommax/ipq807x       # bin/targets/<target>/ (also the artifact path)
+    device: xiaomi_ax3600            # selects devices/<id>/
+    feeds:                           # appended to feeds.conf as `src-git <name> <url>`
+      - name: qosmio
+        url: https://github.com/qosmio/packages-extra
+      - name: sqm_nss
+        url: https://github.com/JuliusBairaktaris/sqm-scripts-nss
+    release:
+      prefix: main-nss               # tag = <prefix>-<UTC timestamp>-<run id>
+
+  - id: edma
+    upstream:
+      repo: Ansuel/openwrt           # PR #22381 author's fork
+      ref: qca-edma-rework           # the PR branch, built directly
+    target: qualcommax/ipq807x
+    device: xiaomi_ax3600
+    feeds: []
+    release:
+      prefix: edma
 ```
 
-## Device `.config`
+Which variants build depends on the trigger:
+- **schedule** → every variant (except any with `scheduled: false`); `check-updates` skips the
+  ones whose upstream is unchanged since their last release (this is the "rebuild when upstream
+  moves" path).
+- **push** → same selection, but always rebuilt — a push to the builder repo means the config,
+  overlays, or scripts changed, so the image must be regenerated.
+- **Run workflow** (`workflow_dispatch`) → the `variant:` input (`all`, or a specific id); always
+  rebuilt.
 
-Lives at `devices/<id>/config`. It's a normal OpenWrt `.config` — the format produced by `make menuconfig` or `scripts/diffconfig.sh`.
+## Device `.config` — base + fragment
 
-To change something:
+Each variant's `.config` is assembled by concatenating a shared base with a variant fragment,
+then running `make defconfig`:
+
+```
+devices/<id>/config            # shared base (target, toolchain, hardening, SSH, packages)
+devices/<id>/config.<variant>  # variant fragment (e.g. NSS modules, or EDMA + cake)
+```
+
+To change something, edit in a real OpenWrt checkout and diff back into the right file:
 
 ```sh
-# In a clone of the upstream tree, with this template's config dropped in:
-cp devices/xiaomi_ax3600/config openwrt/.config
-cd openwrt
-make menuconfig
-./scripts/diffconfig.sh > ../devices/xiaomi_ax3600/config
+# Shared change -> goes in the base:
+cat devices/xiaomi_ax3600/config devices/xiaomi_ax3600/config.edma-nss > openwrt/.config
+cd openwrt && make menuconfig
+./scripts/diffconfig.sh > /tmp/full.config
+# then move new shared lines into devices/<id>/config and variant-only lines into config.edma-nss
 ```
+
+Symbols that don't exist on a given upstream are dropped silently by `make defconfig` — that's
+how the EDMA fragment can share the base even though the NSS fork and mainline differ slightly.
 
 ## Custom feeds
 
-Each entry under `feeds:` becomes one `src-git <name> <url>` line in `feeds.conf` and is updated/installed individually. The corresponding `CONFIG_FEED_<name>` is set to `n` afterwards so you don't accidentally bundle every package from the feed into the image — only the ones you explicitly enable in `.config` ship.
+Each entry under a variant's `feeds:` becomes one `src-git <name> <url>` line in `feeds.conf`,
+updated/installed individually. The corresponding `CONFIG_FEED_<name>` is then set to `n` so you
+don't bundle every package from the feed — only what you explicitly enable in `.config` ships.
+
+## Extra package repos (`packages:`)
+
+For a single-package repo that ships a **top-level Makefile** (so it can't be a feed), list it
+under a variant's `packages:` and it's `git clone`d straight into `package/<name>/` at build time:
+
+```yaml
+packages:
+  - name: qosmate
+    url: https://github.com/hudra0/qosmate.git
+```
+
+The build system scans `package/` automatically, so no feed step is needed. Then enable it in the
+variant's `config.<variant>` (e.g. `CONFIG_PACKAGE_qosmate=y`). Used by `edma` for QoSmate (which
+only works on the CPU/tc data path, not NSS hardware offload).
+
+## Merging OpenWrt PRs
+
+A variant can list `merge_prs: [<n>, ...]`. Each PR is `git fetch`ed from the upstream repo and
+3-way merged onto `ref` at build time (kept uncommitted). `edma` instead builds the PR branch
+directly (see [`VARIANTS.md`](VARIANTS.md) for why), but the mechanism is available for any variant.
 
 ## Source patches
 
-Drop `.patch` files into [`patches/`](../patches/). They're applied to the OpenWrt source in lexicographic order via `git apply`. Standard `git format-patch` output works.
-
-To skip a flaky patch temporarily, rename it to `.patch.disabled`.
+Drop `.patch` files into [`patches/`](../patches/) (applied to every variant) or
+`patches/<variant>/` (that variant only). Applied in lexicographic order via `git apply` after any
+`merge_prs`. Standard `git format-patch` output works. To skip one temporarily, rename it
+`.patch.disabled`.
 
 ## Rootfs overlay
 
-Two overlay directories, applied in this order (later wins):
+Three overlay layers, applied in order (later wins):
 
-1. `common/files/` — shared by every device
-2. `devices/<id>/files/` — device-specific
+1. `common/files/` — shared by every device and variant
+2. `devices/<id>/files/` — device-specific, both variants
+3. `devices/<id>/files.<variant>/` — device + variant specific
 
 Anything under these is copied to the image root, preserving paths. Special handling:
 - `etc/ssh/sshd_config` is `chmod 0600`'d automatically
@@ -77,19 +134,11 @@ Use [crontab.guru](https://crontab.guru) if you're unsure.
 
 ## Disabling caching
 
-This template does not use `actions/cache` and explicitly sets `# CONFIG_CCACHE is not set` in the device config. If you fork and want a cached build, you're on your own — but be aware:
-- `actions/cache` for OpenWrt is a footgun (toolchain+build-dir is multi-GB and easily corrupts mid-build)
-- ccache without persistent storage is a no-op on fresh runners
+This template does not use `actions/cache` and explicitly sets `# CONFIG_CCACHE is not set` in the
+base config. ccache without persistent storage is a no-op on fresh runners, and `actions/cache` for
+OpenWrt's multi-GB build dir is a footgun (easily corrupts mid-build).
 
 ## Disabling the schedule
 
-If you only want manual builds:
-
-```yaml
-on:
-  workflow_dispatch:
-  push:
-    branches: [main]
-    paths: [ ... ]
-  # remove the schedule: block
-```
+If you only want manual builds, remove the `schedule:` block from `build.yml` (keep
+`workflow_dispatch` and `push`). Or set every variant to `scheduled: false`.

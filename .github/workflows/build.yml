@@ -1,10 +1,20 @@
 name: Build
 
 # All build/release/cleanup behavior reads its configuration from builder.yml.
-# The cron schedule below is the only knob that cannot be expressed there
+# The pipeline is a matrix over builder.yml's `variants:` list:
+#   config -> check-updates -> build (matrix) -> prune
+# The cron schedule below is the only knob that cannot be expressed in builder.yml
 # (GitHub Actions cron values must be static strings in this file).
 on:
   workflow_dispatch:
+    inputs:
+      variant:
+        description: "Variant(s) to build"
+        type: choice
+        options:
+          - all
+          - edma-nss
+        default: all
   push:
     branches: [main]
     paths:
@@ -27,109 +37,78 @@ permissions:
 jobs:
   config:
     name: Load builder.yml
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 2
     outputs:
-      upstream_repo: ${{ steps.cfg.outputs.upstream_repo }}
-      upstream_branch: ${{ steps.cfg.outputs.upstream_branch }}
-      nss_repo: ${{ steps.cfg.outputs.nss_repo }}
-      nss_branch: ${{ steps.cfg.outputs.nss_branch }}
-      device: ${{ steps.cfg.outputs.device }}
-      device_dir: ${{ steps.cfg.outputs.device_dir }}
-      release_prefix: ${{ steps.cfg.outputs.release_prefix }}
+      matrix: ${{ steps.cfg.outputs.matrix }}
       release_keep: ${{ steps.cfg.outputs.release_keep }}
       artifact_retention_days: ${{ steps.cfg.outputs.artifact_retention_days }}
-      feeds_lines: ${{ steps.cfg.outputs.feeds_lines }}
+      prefixes: ${{ steps.cfg.outputs.prefixes }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - id: cfg
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          VARIANT_INPUT: ${{ github.event.inputs.variant }}
         run: bash scripts/load-config.sh
 
   check-updates:
-    name: Check upstream
+    name: Check upstreams
     needs: config
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
     env:
       GH_TOKEN: ${{ github.token }}
-      UPSTREAM_REPO: ${{ needs.config.outputs.upstream_repo }}
-      UPSTREAM_BRANCH: ${{ needs.config.outputs.upstream_branch }}
-      NSS_REPO: ${{ needs.config.outputs.nss_repo }}
-      NSS_BRANCH: ${{ needs.config.outputs.nss_branch }}
     outputs:
-      build_required: ${{ steps.check.outputs.build_required }}
-      main_sha: ${{ steps.check.outputs.main_sha }}
-      nss_sha: ${{ steps.check.outputs.nss_sha }}
+      matrix: ${{ steps.check.outputs.matrix }}
+      has_builds: ${{ steps.check.outputs.has_builds }}
     steps:
+      - uses: actions/checkout@v7
       - id: check
-        run: |
-          set -euo pipefail
-          main_sha=$(gh api "repos/${UPSTREAM_REPO}/commits/${UPSTREAM_BRANCH}" --jq .sha)
-          nss_sha=$(gh api "repos/${NSS_REPO}/commits/${NSS_BRANCH}" --jq .sha)
-
-          latest_release_body=$(gh release view --repo "${GITHUB_REPOSITORY}" --json body --jq .body 2>/dev/null || echo "")
-
-          build_required=true
-          if [[ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]] \
-             && [[ "$latest_release_body" == *"$main_sha"* ]] \
-             && [[ "$latest_release_body" == *"$nss_sha"* ]]; then
-            build_required=false
-          fi
-
-          {
-            echo "## Upstream check"
-            echo "- upstream: \`${UPSTREAM_REPO}@${UPSTREAM_BRANCH}\` -> \`${main_sha}\`"
-            echo "- nss:      \`${NSS_REPO}@${NSS_BRANCH}\` -> \`${nss_sha}\`"
-            echo "- build_required: **${build_required}**"
-          } >>"$GITHUB_STEP_SUMMARY"
-
-          {
-            echo "build_required=$build_required"
-            echo "main_sha=$main_sha"
-            echo "nss_sha=$nss_sha"
-          } >>"$GITHUB_OUTPUT"
+        env:
+          CONFIG_MATRIX: ${{ needs.config.outputs.matrix }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+        run: bash scripts/check-updates.sh
 
   build:
-    name: Build firmware
+    name: Build ${{ matrix.variant }} (${{ matrix.device }})
     needs: [config, check-updates]
-    if: needs.check-updates.outputs.build_required == 'true'
-    runs-on: ubuntu-latest
+    if: needs.check-updates.outputs.has_builds == 'true'
+    runs-on: ubuntu-26.04
     timeout-minutes: 360
     permissions:
       contents: write
       actions: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.check-updates.outputs.matrix) }}
     env:
       GH_TOKEN: ${{ github.token }}
-      MAIN_SHA: ${{ needs.check-updates.outputs.main_sha }}
-      NSS_SHA: ${{ needs.check-updates.outputs.nss_sha }}
-      DEVICE: ${{ needs.config.outputs.device }}
-      DEVICE_DIR: ${{ needs.config.outputs.device_dir }}
-      RELEASE_PREFIX: ${{ needs.config.outputs.release_prefix }}
-      ARTIFACT_RETENTION_DAYS: ${{ needs.config.outputs.artifact_retention_days }}
-      FEEDS_LINES: ${{ needs.config.outputs.feeds_lines }}
-    outputs:
-      release_tag: ${{ steps.release.outputs.release_tag }}
     steps:
       - name: Install build dependencies
         run: |
           set -euo pipefail
+          # Pinned to the ubuntu-26.04 runner. OpenWrt main (as of May 2026) builds its own
+          # flex/bison/etc. host tools, so the host set is the minimal OpenWrt prerequisite list
+          # for Ubuntu 26.04. rsync is for prepare-build.sh's overlay step. Everything else
+          # (file, wget, unzip, yq, jq, gh) is preinstalled on the GitHub runner image.
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git \
-            libncurses5-dev libssl-dev python3-setuptools rsync swig unzip zlib1g-dev file wget
+          sudo apt-get install -y \
+            bzip2 g++ gawk gcc git glibc-source libncurses-dev make rsync
 
       - name: Checkout OpenWrt source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
-          repository: ${{ needs.config.outputs.upstream_repo }}
-          ref: ${{ env.MAIN_SHA }}
+          repository: ${{ matrix.upstream_repo }}
+          ref: ${{ matrix.upstream_sha }}
           fetch-depth: 0
           path: openwrt
 
       - name: Checkout builder repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: builder
 
@@ -137,6 +116,8 @@ jobs:
         env:
           OPENWRT_DIR: ${{ github.workspace }}/openwrt
           BUILDER_REPO: ${{ github.workspace }}/builder
+          VARIANT: ${{ matrix.variant }}
+          DEVICE: ${{ matrix.device }}
         run: bash builder/scripts/prepare-build.sh
 
       - name: Set reproducible-build env
@@ -173,13 +154,21 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ needs.config.outputs.device }}-images
-          path: openwrt/bin/targets/qualcommax/ipq807x
+          name: ${{ matrix.variant }}-${{ matrix.device }}-images
+          path: openwrt/bin/targets/${{ matrix.target }}
           if-no-files-found: error
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+          retention-days: ${{ needs.config.outputs.artifact_retention_days }}
 
       - name: Publish release
         id: release
+        env:
+          VARIANT: ${{ matrix.variant }}
+          DEVICE: ${{ matrix.device }}
+          TARGET: ${{ matrix.target }}
+          RELEASE_PREFIX: ${{ matrix.release_prefix }}
+          UPSTREAM_REPO: ${{ matrix.upstream_repo }}
+          UPSTREAM_SHA: ${{ matrix.upstream_sha }}
+          NSS_SHA: ${{ matrix.nss_sha }}
         run: |
           set -euo pipefail
           date=$(date -u +%F)
@@ -188,23 +177,27 @@ jobs:
           echo "release_tag=$tag_name" >>"$GITHUB_OUTPUT"
 
           {
-            echo "## OpenWrt Build"
+            echo "## OpenWrt Build — ${VARIANT}"
             echo "- **Date**: $date"
+            echo "- **Variant**: \`${VARIANT}\`"
             echo "- **Device**: \`${DEVICE}\`"
-            echo "- **Upstream**: \`${MAIN_SHA}\`"
-            echo "- **NSS**: \`${NSS_SHA}\`"
+            echo "- **Target**: \`${TARGET}\`"
+            echo "- **Upstream**: \`${UPSTREAM_REPO}@${UPSTREAM_SHA}\`"
+            if [[ -n "${NSS_SHA}" ]]; then
+              echo "- **NSS**: \`${NSS_SHA}\`"
+            fi
             echo "- **Trigger**: \`${GITHUB_EVENT_NAME}\`"
           } >release_notes.md
 
-          mapfile -t assets < <(find openwrt/bin/targets/qualcommax/ipq807x/ -type f -not -path "*/packages/*")
+          mapfile -t assets < <(find "openwrt/bin/targets/${TARGET}/" -type f -not -path "*/packages/*")
           gh release create "$tag_name" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "OpenWrt Build $date" \
+            --title "OpenWrt ${VARIANT} $date" \
             --notes-file release_notes.md \
             "${assets[@]}"
 
           {
-            echo "## Release"
+            echo "## Release (${VARIANT})"
             echo "- tag: \`${tag_name}\`"
             echo "- assets: ${#assets[@]}"
           } >>"$GITHUB_STEP_SUMMARY"
@@ -212,7 +205,7 @@ jobs:
   prune:
     name: Prune old releases
     needs: [config, build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: write
@@ -220,7 +213,15 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
       KEEP: ${{ needs.config.outputs.release_keep }}
-      CURRENT_TAG: ${{ needs.build.outputs.release_tag }}
+      PREFIXES: ${{ needs.config.outputs.prefixes }}
     steps:
-      - uses: actions/checkout@v6
-      - run: bash scripts/prune-releases.sh
+      - uses: actions/checkout@v7
+      - name: Prune each variant prefix
+        run: |
+          set -euo pipefail
+          while IFS= read -r prefix; do
+            [[ -z "$prefix" ]] && continue
+            echo "::group::prune $prefix"
+            PREFIX="$prefix" bash scripts/prune-releases.sh
+            echo "::endgroup::"
+          done <<< "$PREFIXES"
