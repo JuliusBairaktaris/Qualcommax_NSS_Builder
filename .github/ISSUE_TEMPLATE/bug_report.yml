@@ -1,0 +1,43 @@
+name: Build failure or firmware bug
+description: Something fails to build, or the resulting firmware misbehaves
+labels: [bug]
+body:
+  - type: input
+    id: device
+    attributes:
+      label: Device id
+      description: The device you built
+      placeholder: xiaomi_ax3600
+    validations:
+      required: true
+
+  - type: input
+    id: run_url
+    attributes:
+      label: Failing GitHub Actions run URL
+      description: If this is a build failure, paste the run URL.
+    validations:
+      required: false
+
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened
+      description: What did you observe? Include error messages verbatim if possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Diff against the upstream defaults, custom feeds, custom patches, etc.
+    validations:
+      required: false

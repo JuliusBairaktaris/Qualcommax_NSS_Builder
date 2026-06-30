@@ -1,0 +1,135 @@
+#
+# Build config for the Xiaomi AX3600 (IPQ8071A) — edma-nss image.
+#
+# prepare-build.sh copies this to .config and runs `make defconfig`.
+#
+
+## Target Platform
+CONFIG_TARGET_qualcommax=y
+CONFIG_TARGET_qualcommax_ipq807x=y
+CONFIG_TARGET_qualcommax_ipq807x_DEVICE_xiaomi_ax3600=y
+CONFIG_ATH11K_MEM_PROFILE_512M=y
+CONFIG_IPQ_MEM_PROFILE_512=y
+CONFIG_KERNEL_IPQ_MEM_PROFILE=512
+
+## Disable Ath10k
+CONFIG_ATH10K-CT_LEDS=n
+CONFIG_PACKAGE_ath10k-board-qca9887=n
+CONFIG_PACKAGE_ath10k-firmware-qca9887=n
+CONFIG_PACKAGE_ath10k-firmware-qca9887-ct=n
+CONFIG_PACKAGE_kmod-ath10k-ct-smallbuffers=n
+
+## Compiler and Toolchain Optimization
+CONFIG_BINUTILS_USE_VERSION_2_46=y
+CONFIG_DEVEL=y
+CONFIG_GCC_USE_GRAPHITE=y
+CONFIG_GCC_USE_VERSION_15=y
+CONFIG_TARGET_OPTIMIZATION="-O2 -pipe -mcpu=cortex-a53+crc+crypto"
+CONFIG_TARGET_OPTIONS=y
+CONFIG_TOOLCHAINOPTS=y
+CONFIG_USE_GC_SECTIONS=y
+CONFIG_USE_LTO=y
+CONFIG_USE_MKLIBS=y
+CONFIG_USE_MOLD=y
+CONFIG_ZLIB_OPTIMIZE_SPEED=y
+CONFIG_ZSTD_OPTIMIZE_O3=y
+# CONFIG_CCACHE is not set
+
+## Kernel Build Options
+CONFIG_BUILD_PATENTED=y
+CONFIG_EXPERIMENTAL=y
+
+# Hardening build options
+CONFIG_GCC_DEFAULT_PIE=y
+CONFIG_GCC_DEFAULT_SSP=y
+CONFIG_PKG_CHECK_FORMAT_SECURITY=y
+CONFIG_PKG_ASLR_PIE_ALL=y
+CONFIG_PKG_CC_STACKPROTECTOR_ALL=y
+CONFIG_KERNEL_CC_STACKPROTECTOR_STRONG=y
+CONFIG_PKG_FORTIFY_SOURCE_3=y
+CONFIG_PKG_RELRO_FULL=y
+CONFIG_USE_SECCOMP=y
+
+## SSH Server Configuration
+CONFIG_PACKAGE_dropbear=n
+CONFIG_PACKAGE_openssh-moduli=y
+CONFIG_PACKAGE_openssh-server=y
+CONFIG_PACKAGE_openssh-sftp-server=y
+
+## SSL and Cryptography Configuration
+CONFIG_LUA_ECO_MBEDTLS=n
+CONFIG_LUA_ECO_OPENSSL=y
+CONFIG_OPENSSL_OPTIMIZE_SPEED=y
+CONFIG_PACKAGE_apk-mbedtls=n
+CONFIG_PACKAGE_apk-openssl=y
+CONFIG_PACKAGE_libopenssl=y
+CONFIG_PACKAGE_libopenssl-oqsprovider=y
+CONFIG_PACKAGE_libustream-mbedtls=n
+CONFIG_PACKAGE_libustream-openssl=y
+CONFIG_PACKAGE_luci-ssl-openssl=y
+CONFIG_PACKAGE_luci-app-bcp38=y
+
+## Additional Packages and Utilities
+CONFIG_PACKAGE_curl=y
+CONFIG_PACKAGE_htop=y
+CONFIG_HTOP_LMSENSORS=n
+CONFIG_PACKAGE_iperf3=y
+CONFIG_PACKAGE_kmod-tcp-bbr=y
+CONFIG_LIBCURL_MBEDTLS=n
+CONFIG_LIBCURL_OPENSSL=y
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-app-firewall=y
+CONFIG_PACKAGE_wpad-openssl=y
+
+## Redundant Default Packages
+CONFIG_PACKAGE_kmod-phy-aquantia=n
+CONFIG_PACKAGE_kmod-usb-core=n
+CONFIG_PACKAGE_kmod-usb-dwc3=n
+CONFIG_PACKAGE_kmod-usb-dwc3-qcom=n
+CONFIG_PACKAGE_kmod-usb-xhci-hcd=n
+CONFIG_PACKAGE_kmod-usb3=n
+CONFIG_PACKAGE_wpad-basic-mbedtls=n
+CONFIG_PACKAGE_luci-app-attendedsysupgrade=n
+CONFIG_PACKAGE_attendedsysupgrade-common=n
+
+# Disable unnecessary debugging for Wi-Fi driver.
+CONFIG_ATH11K_DEBUGFS_HTT_STATS=n
+CONFIG_ATH11K_DEBUGFS_STA=n
+# Disables thermal throttling support for ath11k.
+CONFIG_ATH11K_THERMAL=n
+
+## NSS data plane + connection offload (ECM, PPPoE).
+## kmod-qca-ppe-nss (the data-plane glue) is pulled in by kmod-qca-nss-drv.
+CONFIG_PACKAGE_kmod-qca-nss-drv=y
+CONFIG_PACKAGE_kmod-qca-nss-ecm=y
+CONFIG_PACKAGE_kmod-qca-nss-drv-pppoe=y
+## kmod-qca-nss-drv-bridge-mgr: hardware offload of wired LAN-bridge forwarding
+## (brought up by nss-up alongside the rest of the plane).
+CONFIG_PACKAGE_kmod-qca-nss-drv-bridge-mgr=y
+## kmod-qca-mcs: IGMP/MLD bridge snooping; enables the ECM multicast classifier
+## (ECM_MULTICAST_ENABLE) so snooped groups replicate in PPE hardware instead of
+## flooding to the host. Loaded by nss-up before ECM. Depends on the mroute
+## kernel options (kept explicit here).
+CONFIG_PACKAGE_kmod-qca-mcs=y
+CONFIG_KERNEL_IP_MROUTE=y
+CONFIG_KERNEL_IPV6_MROUTE=y
+## Same-subnet multicast is hardware-bridged (switchdev MDB -> PPE) with the
+## above. Routed L3 multicast (IPTV WAN->LAN) additionally needs a userspace
+## mroute daemon to populate the kernel MFC; ECM then offloads each MFC entry.
+## Not bundled - add igmpproxy (or smcroute) in your fork if you have a WAN
+## multicast source. See docs/CUSTOMIZE.md.
+# CONFIG_PACKAGE_igmpproxy is not set
+CONFIG_NSS_FIRMWARE_VERSION_12_5=y
+# AX3600 = 512MB RAM: NSS MEDIUM memory profile (HIGH is the ipq807x default and wrong here)
+CONFIG_NSS_MEM_PROFILE_MEDIUM=y
+
+## ath11k NSS Wi-Fi offload (wifili). Boots host-mode (nss_offload=0,
+## frame_mode=2); /usr/sbin/nss-up moves the radios onto the NSS data path.
+CONFIG_ATH11K_NSS_SUPPORT=y
+CONFIG_PACKAGE_MAC80211_NSS_SUPPORT=y
+
+## NSS qdisc/SQM (nss-edma.qos) + the SQM LuCI app
+CONFIG_PACKAGE_kmod-qca-nss-drv-qdisc=y
+CONFIG_PACKAGE_kmod-qca-nss-drv-igs=y
+CONFIG_PACKAGE_sqm-scripts-nss=y
+CONFIG_PACKAGE_luci-app-sqm=y

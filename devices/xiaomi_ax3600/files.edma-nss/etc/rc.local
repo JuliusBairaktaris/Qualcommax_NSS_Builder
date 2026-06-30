@@ -1,0 +1,13 @@
+# Put your custom commands here that should be executed once
+# the system init finished. By default this file does nothing.
+
+# (supersedes the shared rc.local: keep its ssh moduli hardening)
+awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.safe
+mv /etc/ssh/moduli.safe /etc/ssh/moduli
+
+# Bring up the NSS data plane (firmware, Wi-Fi offload, ECM, SQM).
+# Remove or comment this line to stay on the plain host stack; a
+# reboot always returns to the host stack until this runs again.
+/usr/sbin/nss-up >/tmp/nss-up.log 2>&1 || logger -t nss-up "NSS bring-up failed, see /tmp/nss-up.log (host stack still active)"
+
+exit 0

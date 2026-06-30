@@ -1,0 +1,52 @@
+luci-mod-status: show the NSS QoS DSCP class on the connections page
+
+The nssqos service records each marked connection's DSCP class in the
+conntrack mark as (dscp | 0x80). getConntrackList already surfaces the
+mark, so decode it into a DSCP column on Status -> Realtime -> Connections.
+This replaces the separate NSS connections viewer the image used to ship.
+
+Signed-off-by: Julius Bairaktaris <julius@bairaktaris.de>
+--- a/modules/luci-mod-status/htdocs/luci-static/resources/view/status/connections.js
++++ b/modules/luci-mod-status/htdocs/luci-static/resources/view/status/connections.js
+@@ -54,6 +54,22 @@
+ 
+ const recheck_lookup_queue = {};
+ 
++/* NSS QoS (package nssqos) records a connection's DSCP class in the conntrack
++ * mark as (dscp | 0x80), qosmate-compatible. Decode it so accelerated flows
++ * show their class here — the mark rides in the getConntrackList payload. */
++const NSS_DSCP_NAMES = {
++	0:'CS0', 8:'CS1', 16:'CS2', 24:'CS3', 32:'CS4', 40:'CS5', 48:'CS6', 56:'CS7',
++	10:'AF11', 12:'AF12', 14:'AF13', 18:'AF21', 20:'AF22', 22:'AF23',
++	26:'AF31', 28:'AF32', 30:'AF33', 34:'AF41', 36:'AF42', 38:'AF43',
++	46:'EF', 44:'VA', 1:'LE'
++};
++function nssDscpLabel(mark) {
++	const m = +mark || 0;
++	if (!(m & 0x80)) return '-';
++	const d = m & 0x7f;
++	return NSS_DSCP_NAMES[d] || ('0x' + d.toString(16));
++}
++
+ Math.log2 = Math.log2 || function(x) { return Math.log(x) * Math.LOG2E; };
+ 
+ return view.extend({
+@@ -194,7 +210,7 @@
+ 							}
+ 					}
+ 
+-					rows.push([network, protocol, source, destination, transfer]);
++					rows.push([network, protocol, source, destination, transfer, nssDscpLabel(c.mark)]);
+ 			}
+ 
+ 			cbi_update_table('#connections', rows, E('em', _('No information available')));
+@@ -511,7 +527,8 @@
+ 							E('th', { 'class': 'th col-2' }, [ _('Protocol') ]),
+ 							E('th', { 'class': 'th col-7' }, [ _('Source') ]),
+ 							E('th', { 'class': 'th col-7' }, [ _('Destination') ]),
+-							E('th', { 'class': 'th col-4' }, [ _('Transfer') ])
++							E('th', { 'class': 'th col-4' }, [ _('Transfer') ]),
++							E('th', { 'class': 'th col-2' }, [ _('DSCP') ])
+ 						]),
+ 						E('tr', { 'class': 'tr placeholder' }, [
+ 							E('td', { 'class': 'td' }, [

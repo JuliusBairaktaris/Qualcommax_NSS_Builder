@@ -1,0 +1,12 @@
+# Force LF on shell scripts and OpenWrt config so they don't break on a Windows fork.
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+config  text eol=lf
+*.config text eol=lf
+*.patch text eol=lf
+
+# uci-defaults are POSIX shell scripts even without a .sh extension.
+# files* covers the variant overlay dir (files.edma-nss/) too.
+devices/*/files*/etc/uci-defaults/* text eol=lf
