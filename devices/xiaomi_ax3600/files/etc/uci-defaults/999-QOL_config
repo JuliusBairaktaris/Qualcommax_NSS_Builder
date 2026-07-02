@@ -12,6 +12,11 @@ set firewall.@zone[1].forward='DROP'
 set bcp38.cfg018e45.enabled='1'
 set bcp38.cfg018e45.interface='wan'
 
+# NTP: serve time locally (sysntpd) and advertise this router to LAN clients
+# via DHCP option 42 (which carries IP addresses, not hostnames).
+set system.ntp.enable_server='1'
+add_list dhcp.lan.dhcp_option='42,192.168.1.1'
+
 # uHTTPd settings
 set uhttpd.main.redirect_https='1'
 
