@@ -1,0 +1,48 @@
+# Complete wireless config for the AX3600 (radio paths are fixed for this
+# board, so shipping it statically beats first-boot detection: the radios are
+# configured and ENABLED from the very first boot). CHANGE THE DEFAULT
+# PASSWORD (option key) on first login — it is public in the builder repo.
+
+config wifi-device 'radio0'
+	option type 'mac80211'
+	option path 'platform/soc@0/c000000.wifi'
+	option band '5g'
+	option channel '36'
+	option htmode 'HE160'
+	option country 'DE'
+
+config wifi-iface 'default_radio0'
+	option device 'radio0'
+	option network 'lan'
+	option mode 'ap'
+	option ssid 'OpenWrt'
+	option encryption 'sae-mixed'
+	option key 'openwrt-nss'
+	option wnm_sleep_mode '1'
+	option ieee80211k '1'
+	option time_advertisement '2'
+	option bss_transition '1'
+	option proxy_arp '1'
+	option ocv '1'
+
+config wifi-device 'radio1'
+	option type 'mac80211'
+	option path 'platform/soc@0/c000000.wifi+1'
+	option band '2g'
+	option channel '1'
+	option htmode 'HE40'
+	option country 'DE'
+
+config wifi-iface 'default_radio1'
+	option device 'radio1'
+	option network 'lan'
+	option mode 'ap'
+	option ssid 'OpenWrt'
+	option encryption 'sae-mixed'
+	option key 'openwrt-nss'
+	option wnm_sleep_mode '1'
+	option ieee80211k '1'
+	option time_advertisement '2'
+	option bss_transition '1'
+	option proxy_arp '1'
+	option ocv '1'

@@ -1,30 +1,7 @@
 uci -q batch << EOI
 
-# Wireless default settings for radio0
-set wireless.default_radio0.wnm_sleep_mode='1'
-set wireless.default_radio0.ieee80211k='1'
-set wireless.default_radio0.time_advertisement='2'
-set wireless.default_radio0.bss_transition='1'
-set wireless.default_radio0.proxy_arp='1'
-set wireless.default_radio0.ocv='1'
-
-# Wireless radio0 specific settings
-set wireless.radio0.htmode='HE160'
-set wireless.radio0.channel='36'
-set wireless.radio0.country='DE'
-
-# Wireless default settings for radio1
-set wireless.default_radio1.wnm_sleep_mode='1'
-set wireless.default_radio1.ieee80211k='1'
-set wireless.default_radio1.time_advertisement='2'
-set wireless.default_radio1.bss_transition='1'
-set wireless.default_radio1.proxy_arp='1'
-set wireless.default_radio1.ocv='1'
-
-# Wireless radio1 specific settings
-set wireless.radio1.htmode='HE40'
-set wireless.radio1.channel='1'
-set wireless.radio1.country='DE'
+# Wireless defaults live in the static /etc/config/wireless (radios enabled
+# and configured from the first boot - no detection race).
 
 # Firewall settings
 set firewall.@zone[1].input='DROP'
