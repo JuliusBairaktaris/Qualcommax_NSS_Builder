@@ -46,7 +46,11 @@ sysctl -w net.netfilter.nf_conntrack_tcp_no_window_check=1
 modprobe ecm front_end_selection=1
 sleep 2
 echo 1 > /sys/kernel/debug/ecm/ecm_classifier_default/accel_delay_pkts
-modprobe qca-nss-pppoe
+
+# PPPoE connection-manager offload is only needed when the WAN actually runs
+# PPPoE. On DHCP/static WANs the module is unneeded (and may not be in the
+# image) - skip it, so those setups don't get a spurious "no such module" error.
+[ "$(uci -q get network.wan.proto)" = pppoe ] && modprobe qca-nss-pppoe 2>/dev/null
 
 # Wi-Fi offload: flip nss_offload and rebind the radio so ath11k re-registers
 # against the NSS data path (wifili); pbuf re-applies the 512MB n2h pool tuning
@@ -74,24 +78,30 @@ fi
 # WAN + SQM bring-up is best-effort with retries (set +e is in effect).
 ifup wan
 
-# Wait for the PPPoE WAN to obtain an L3 address before starting SQM.
-# nss-edma.qos's check_addr aborts ("no IP on wan (proto=pppoe)") when pppoe-wan
-# has no address yet, and the iface hotplug for an interface='wan' SQM section
-# does not reliably re-fire -> with only a fixed sleep, PPPoE negotiation
-# outlasts the wait at boot and SQM silently never starts. Poll for up to ~60s.
+# Derive the WAN's real L3 device: pppoe-wan for a PPPoE WAN, or the DHCP/static
+# device otherwise. Everything downstream polls/attaches to THIS, so nss-up works
+# regardless of WAN type instead of assuming PPPoE.
+wan_dev=$(ifstatus wan 2>/dev/null | jsonfilter -e '@.l3_device' 2>/dev/null)
+[ -n "$wan_dev" ] || wan_dev=wan
+
+# Wait for the WAN to obtain an L3 address before starting SQM. nss-edma.qos's
+# check_addr aborts when the shaper interface has no address yet, and the iface
+# hotplug for an interface='wan' SQM section does not reliably re-fire -> with
+# only a fixed sleep, WAN negotiation (PPPoE especially) can outlast the wait at
+# boot and SQM silently never starts. Poll the real L3 device for up to ~60s.
 i=0
 while [ $i -lt 30 ]; do
-  if ip -4 addr show dev pppoe-wan 2>/dev/null | grep -q "inet " \
-     || ip -6 addr show dev pppoe-wan scope global 2>/dev/null | grep -q "inet6 "; then
+  if ip -4 addr show dev "$wan_dev" 2>/dev/null | grep -q "inet " \
+     || ip -6 addr show dev "$wan_dev" scope global 2>/dev/null | grep -q "inet6 "; then
     break
   fi
   i=$((i + 1))
   sleep 2
 done
 if [ $i -lt 30 ]; then
-  echo "pppoe-wan has an IP after ~$((i * 2))s"
+  echo "$wan_dev has an IP after ~$((i * 2))s"
 else
-  echo "WARN: pppoe-wan still has no IP after 60s; starting SQM anyway"
+  echo "WARN: $wan_dev still has no IP after 60s; starting SQM anyway"
 fi
 
 # let the link settle, then flush conntrack/ECM so flows re-accelerate cleanly
@@ -118,19 +128,22 @@ cat /sys/kernel/debug/ecm/ecm_nss_ipv4/accelerated_count /sys/kernel/debug/ecm/e
 # Start SQM, retrying until the NSS shaper actually attaches to wan (check_addr
 # can still lose a race in the first moments after the IP appears).
 if /etc/init.d/sqm enabled; then
+  # The NSS shaper lands on the device named by the SQM section
+  # (sqm.wan.interface), which is not necessarily "wan" - check there.
+  sqm_dev=$(uci -q get sqm.wan.interface); [ -n "$sqm_dev" ] || sqm_dev=wan
   j=0
   while [ $j -lt 5 ]; do
     j=$((j + 1))
     /etc/init.d/sqm restart >/dev/null 2>&1
     sleep 3
-    if tc qdisc show dev wan 2>/dev/null | grep -q nsstbl; then
-      echo "SQM active on wan (attempt $j)"
+    if tc qdisc show dev "$sqm_dev" 2>/dev/null | grep -q nsstbl; then
+      echo "SQM active on $sqm_dev (attempt $j)"
       break
     fi
     echo "SQM not attached yet, retry $j/5"
     sleep 3
   done
-  if ! tc qdisc show dev wan 2>/dev/null | grep -q nsstbl; then
+  if ! tc qdisc show dev "$sqm_dev" 2>/dev/null | grep -q nsstbl; then
     echo "WARN: SQM still not attached after 5 attempts"
   fi
   # Report the per-port upload IGS trees (sqm.wan.igs_upload).
