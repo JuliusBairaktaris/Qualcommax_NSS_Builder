@@ -47,10 +47,14 @@ modprobe ecm front_end_selection=1
 sleep 2
 echo 1 > /sys/kernel/debug/ecm/ecm_classifier_default/accel_delay_pkts
 
-# PPPoE connection-manager offload is only needed when the WAN actually runs
-# PPPoE. On DHCP/static WANs the module is unneeded (and may not be in the
-# image) - skip it, so those setups don't get a spurious "no such module" error.
-[ "$(uci -q get network.wan.proto)" = pppoe ] && modprobe qca-nss-pppoe 2>/dev/null
+# PPPoE connection-manager offload. Load unconditionally: the manager only
+# learns sessions created after it loads, and gating this on the current
+# network.wan.proto loses the race when the WAN becomes PPPoE only after boot
+# (fresh flash + config restore) - leaving every WAN flow stuck on the host
+# path. It is inert without a PPPoE session, and on images without the module
+# the redirect below swallows the error. The 'ifup wan' further down
+# (re)creates the session after the manager is resident.
+modprobe qca-nss-pppoe 2>/dev/null || true
 
 # Wi-Fi offload: flip nss_offload and rebind the radio so ath11k re-registers
 # against the NSS data path (wifili); pbuf re-applies the 512MB n2h pool tuning
