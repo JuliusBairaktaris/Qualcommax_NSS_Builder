@@ -5,9 +5,8 @@
 awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.safe
 mv /etc/ssh/moduli.safe /etc/ssh/moduli
 
-# Bring up the NSS data plane (firmware, Wi-Fi offload, ECM, SQM).
-# Remove or comment this line to stay on the plain host stack; a
-# reboot always returns to the host stack until this runs again.
-/usr/sbin/nss-up >/tmp/nss-up.log 2>&1 || logger -t nss-up "NSS bring-up failed, see /tmp/nss-up.log (host stack still active)"
+# The NSS data plane is brought up by the 'nss' service (/etc/init.d/nss ->
+# /usr/sbin/nss-up); its output lands in logread. To stay on the plain host
+# stack: uci set nss.general.enabled='0'; uci commit nss (then reboot).
 
 exit 0
