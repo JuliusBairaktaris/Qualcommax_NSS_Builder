@@ -47,6 +47,9 @@ always a safe way back — the universal recovery path.
 To stay on the host stack permanently:
 `uci set nss.general.enabled='0'; uci commit nss` (survives sysupgrade).
 
+Check plane health any time with `nss-status` over ssh, or in LuCI under
+**Status → NSS Offload**.
+
 ---
 
 ## What ships by default
@@ -62,6 +65,7 @@ included desktop-router config:
 | **Multicast** | `kmod-qca-mcs` — same-subnet multicast hardware-bridged to snooped members |
 | **SQM** | NSS qdiscs (`-qdisc`/`-igs`) + `sqm-scripts-nss` (`nss-edma.qos`) + `luci-app-sqm` |
 | **Wi-Fi** | ath11k NSS offload (wifili) on both radios (`CONFIG_ATH11K_NSS_SUPPORT`) |
+| **Diagnostics** | `nss-status` CLI health report + LuCI **Status → NSS Offload** page |
 | **Firmware/profile** | `NSS.FW.12.5-210-HK.R`, MEDIUM memory profile (512 MB) |
 | **Security** | OpenSSH only (post-quantum KEX, AEAD/ETM, RSA ≥ 3072), `PKG_*` hardening (ASLR/PIE, stack protector, FORTIFY_3, RELRO, seccomp), WAN DROP + BCP38, HTTPS redirect, OQS provider in OpenSSL |
 | **Toolchain** | GCC 15 + Graphite, Binutils 2.46, Mold linker, LTO, `-mcpu=cortex-a53+crc+crypto`; ccache off |
