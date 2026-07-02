@@ -38,11 +38,14 @@ settings" for a first-time flash. Coming from stock Xiaomi firmware? Install
 OpenWrt first via the [official guide](https://openwrt.org/toh/xiaomi/ax3600).
 
 **Runtime model:** the image boots as a normal OpenWrt system on the plain host
-stack (Wi-Fi in host mode; the NSS modules are loaded but inert). `nss-up`, run
-from `/etc/rc.local`, arms the NSS data plane, boots the firmware, moves the
-radios onto the wifili path and starts ECM + SQM. **A reboot always returns to
-the stock host-only stack** — the universal recovery path. To stay on the host
-stack permanently, remove the `nss-up` line from `/etc/rc.local`.
+stack (Wi-Fi in host mode; the NSS modules are loaded but inert). The `nss`
+service (`/etc/init.d/nss`, runs `/usr/sbin/nss-up`) then arms the NSS data
+plane, boots the firmware, moves the radios onto the wifili path and starts
+ECM + SQM; its output lands in the system log (`logread -e nss`). **Every boot
+starts on the stock host-only stack** before the service arms NSS, so a reboot is
+always a safe way back — the universal recovery path.
+To stay on the host stack permanently:
+`uci set nss.general.enabled='0'; uci commit nss` (survives sysupgrade).
 
 ---
 
