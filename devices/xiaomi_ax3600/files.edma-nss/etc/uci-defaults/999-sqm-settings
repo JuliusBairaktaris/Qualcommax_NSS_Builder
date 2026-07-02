@@ -3,23 +3,30 @@
 # only if absent (so user-tuned rates survive sysupgrade) and remove the legacy
 # bogus sqm.eth1 section (it was named 'eth1' but pointed at interface 'wan' and
 # carried no download/upload rates, so it shaped nothing and produced a spurious
-# second SQM start at boot). Rates below are for a ~300/150 Mbit line; adjust to
-# your link.
+# second SQM start at boot). Rates below are for a ~300/150 Mbit Telekom FTTH
+# line: download 295000 (98%) measured bloat-free on this link (fall back to
+# 285000 if peak-hour testing shows added latency), upload 142500 (95%).
+# Egress keeps a tight CoDel (20ms interval + 150p limit) as the backstop for
+# traffic without an upload IGS tree (Wi-Fi clients); the per-port IGS trees
+# (igs_upload) give wired upload true per-flow isolation. Adjust to your link.
 if [ -z "$(uci -q get sqm.wan)" ]; then
 	uci -q batch <<-EOI
 		set sqm.wan=queue
 		set sqm.wan.enabled='1'
 		set sqm.wan.interface='wan'
-		set sqm.wan.download='285000'
+		set sqm.wan.download='295000'
 		set sqm.wan.upload='142500'
 		set sqm.wan.qdisc='fq_codel'
 		set sqm.wan.script='nss-edma.qos'
+		set sqm.wan.linklayer='none'
 		set sqm.wan.qdisc_advanced='1'
 		set sqm.wan.qdisc_really_really_advanced='1'
 		set sqm.wan.itarget='4ms'
 		set sqm.wan.etarget='4ms'
 		set sqm.wan.iqdisc_opts='interval 50ms quantum 304'
-		set sqm.wan.eqdisc_opts='interval 50ms quantum 304'
+		set sqm.wan.eqdisc_opts='interval 20ms quantum 304'
+		set sqm.wan.elimit='150'
+		set sqm.wan.igs_upload='lan1 lan2 lan3'
 	EOI
 fi
 uci -q delete sqm.eth1
