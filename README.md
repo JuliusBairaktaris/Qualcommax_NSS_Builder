@@ -50,6 +50,10 @@ To stay on the host stack permanently:
 Check plane health any time with `nss-status` over ssh, or in LuCI under
 **Status → NSS Offload**.
 
+Wi-Fi is **enabled out of the box**: SSID `OpenWrt`, WPA2/WPA3 (`sae-mixed`),
+password `openwrt-nss`. The password is public in this repo — **change it on
+first login** (LuCI → Network → Wireless).
+
 ---
 
 ## What ships by default
@@ -64,7 +68,7 @@ included desktop-router config:
 | **Bridge offload** | `kmod-qca-nss-drv-bridge-mgr` — wired LAN bridging in hardware |
 | **Multicast** | `kmod-qca-mcs` — same-subnet multicast hardware-bridged to snooped members |
 | **SQM** | NSS qdiscs (`-qdisc`/`-igs`) + `sqm-scripts-nss` (`nss-edma.qos`) + `luci-app-sqm` |
-| **Wi-Fi** | ath11k NSS offload (wifili) on both radios (`CONFIG_ATH11K_NSS_SUPPORT`) |
+| **Wi-Fi** | ath11k NSS offload (wifili) on both radios (`CONFIG_ATH11K_NSS_SUPPORT`); enabled by default (SSID `OpenWrt`, WPA2/WPA3, password `openwrt-nss` — change it) |
 | **Diagnostics** | `nss-status` CLI health report + LuCI **Status → NSS Offload** page |
 | **Firmware/profile** | `NSS.FW.12.5-210-HK.R`, MEDIUM memory profile (512 MB) |
 | **Security** | OpenSSH only (post-quantum KEX, AEAD/ETM, RSA ≥ 3072), `PKG_*` hardening (ASLR/PIE, stack protector, FORTIFY_3, RELRO, seccomp), WAN DROP + BCP38, HTTPS redirect, OQS provider in OpenSSL |
