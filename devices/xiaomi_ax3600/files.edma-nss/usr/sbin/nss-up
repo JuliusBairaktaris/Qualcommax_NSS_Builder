@@ -133,4 +133,12 @@ if /etc/init.d/sqm enabled; then
   if ! tc qdisc show dev wan 2>/dev/null | grep -q nsstbl; then
     echo "WARN: SQM still not attached after 5 attempts"
   fi
+  # Report the per-port upload IGS trees (sqm.wan.igs_upload).
+  for p in $(uci -q get sqm.wan.igs_upload); do
+    if tc qdisc show dev "ifb-$p" 2>/dev/null | grep -q nsstbl; then
+      echo "upload IGS active: $p -> ifb-$p"
+    else
+      echo "WARN: upload IGS tree missing on ifb-$p (logread | grep upload_igs)"
+    fi
+  done
 fi
