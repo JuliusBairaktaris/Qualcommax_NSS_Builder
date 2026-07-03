@@ -67,9 +67,10 @@ included desktop-router config:
 | **Connection offload** | ECM (`kmod-qca-nss-ecm`), PPPoE manager (`kmod-qca-nss-drv-pppoe`) — IPv4 NAT, IPv6 routing, PPPoE-over-VLAN |
 | **Bridge offload** | `kmod-qca-nss-drv-bridge-mgr` — wired LAN bridging in hardware |
 | **Multicast** | `kmod-qca-mcs` — same-subnet multicast hardware-bridged to snooped members |
-| **SQM** | NSS qdiscs (`-qdisc`/`-igs`) + `sqm-scripts-nss` (`nss-edma.qos`) + `luci-app-sqm` |
+| **SQM** | NSS qdiscs (`-qdisc`/`-igs`) + `sqm-scripts-nss` (`nss-edma.qos`, DSCP fast lane both directions) + `luci-app-sqm` |
+| **QoS marking** | `nssqos` + `luci-app-nssqos` — DSCP marking & fast-lane prioritization rules (CLI `/etc/config/nssqos`, LuCI **Network → QoS Marking (NSS)**), effective on accelerated flows |
 | **Wi-Fi** | ath11k NSS offload (wifili) on both radios (`CONFIG_ATH11K_NSS_SUPPORT`); enabled by default (SSID `OpenWrt`, WPA2/WPA3, password `openwrt-nss` — change it) |
-| **Diagnostics** | `nss-status` CLI health report + LuCI **Status → NSS Offload** page |
+| **Diagnostics** | `nss-status` CLI health report (now incl. fast-lane counters) + LuCI **Status → NSS Offload** page |
 | **Firmware/profile** | `NSS.FW.12.5-210-HK.R`, MEDIUM memory profile (512 MB) |
 | **Security** | OpenSSH only (post-quantum KEX, AEAD/ETM, RSA ≥ 3072), `PKG_*` hardening (ASLR/PIE, stack protector, FORTIFY_3, RELRO, seccomp), WAN DROP + BCP38, HTTPS redirect, OQS provider in OpenSSL |
 | **Toolchain** | GCC 15 + Graphite, Binutils 2.46, Mold linker, LTO, `-mcpu=cortex-a53+crc+crypto`; ccache off |
@@ -129,9 +130,13 @@ cp ../Qualcommax_NSS_Builder/devices/xiaomi_ax3600/config .config
 make defconfig && make -j"$(nproc)"
 ```
 
-The overlay files (`nss-up`, uci-defaults, SQM and SSH config) are under
-`devices/xiaomi_ax3600/files*/` — copy them into the image with a `files/`
-directory or the builder pipeline. See [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md)
+The NSS runtime tools (`nss-up`, `nss-status`, the `nss` boot service, the
+QoS marking CLI/UI) ship as regular packages from the openwrt fork
+(`nss-tools`, `nssqos`, `luci-app-nss`, `luci-app-nssqos`) — plain fork
+checkouts get them by selecting the packages, no builder needed. The few
+remaining overlay files (device SQM rates, wireless defaults, SSH config)
+are under `devices/xiaomi_ax3600/files*/` — copy them into the image with a
+`files/` directory or the builder pipeline. See [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md)
 for the full customization guide and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 for how the pipeline works.
 
@@ -141,7 +146,7 @@ for how the pipeline works.
 devices/xiaomi_ax3600/
   config                 # the .config (target, toolchain, hardening, NSS packages)
   files/                 # base rootfs overlay (sshd_config, QoL uci-defaults)
-  files.edma-nss/        # edma-nss overlay (nss-up, SQM + offload settings)
+  files.edma-nss/        # edma-nss overlay (device SQM rates, rc.local)
 scripts/                 # check-updates, prepare-build, prune-releases (tested, linted)
 docs/                    # CUSTOMIZE.md, ARCHITECTURE.md
 .github/workflows/       # build.yml (check → build → prune), lint.yml
