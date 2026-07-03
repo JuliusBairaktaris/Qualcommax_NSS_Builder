@@ -77,6 +77,10 @@ if [ -w /sys/module/ath11k/parameters/nss_offload ]; then
     sleep 10
   fi
   /etc/init.d/qca-nss-pbuf start
+  # Pin the NSS cores at their top frequency: the pbuf service disables the
+  # boot-time auto-scaler, which otherwise leaves the clock frozen at whatever
+  # step the boot-time load had reached.
+  sysctl -w dev.nss.clock.current_freq=1689600000 >/dev/null 2>&1 || true
 fi
 
 # WAN + SQM bring-up is best-effort with retries (set +e is in effect).

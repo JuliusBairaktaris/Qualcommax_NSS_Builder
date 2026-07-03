@@ -1,14 +1,19 @@
 #!/bin/sh
 # nss-status: one-shot health report for the NSS offload data plane.
-# Human-readable by default; -j emits JSON (used by the LuCI status page).
-# Read-only: safe to run at any time.
+# Human-readable by default; -j emits JSON (used by the LuCI status page);
+# -d/--debug appends a diagnostics snapshot (firmware EDMA/N2H counters,
+# ECM totals, recent NSS kernel messages). Read-only: safe to run at any time.
 
 GLUE=/sys/kernel/debug/qca-ppe-nss
 DRV=/sys/kernel/debug/qca-nss-drv/stats
 ECM=/sys/kernel/debug/ecm
 
 JSON=0
-[ "$1" = "-j" ] && JSON=1
+DEBUG=0
+case "$1" in
+	-j) JSON=1 ;;
+	-d|--debug) DEBUG=1 ;;
+esac
 
 mod() { [ -d "/sys/module/$1" ] && echo 1 || echo 0; }
 
@@ -137,3 +142,47 @@ case "$state" in
 	stalled) echo "  verdict:     FIRMWARE ARMED BUT HEARTBEAT SILENT - check logread; reboot returns to the host stack" ;;
 	host)    echo "  verdict:     host stack (NSS plane not armed - run nss-up or 'service nss start')" ;;
 esac
+
+[ "$DEBUG" = 1 ] || exit 0
+
+# --- debug snapshot (-d) -----------------------------------------------------
+# Every source is optional: with the NSS plane down most of these do not exist.
+
+sec() {
+	echo ""
+	echo "=== $1 ==="
+}
+
+sec "firmware EDMA error/pressure counters ($DRV/edma/err_stats)"
+if [ -r "$DRV/edma/err_stats" ]; then
+	cat "$DRV/edma/err_stats"
+else
+	echo "(not available - qca-nss-drv not loaded / firmware not armed)"
+fi
+
+sec "N2H (firmware-to-host) statistics ($DRV/n2h)"
+if [ -r "$DRV/n2h" ]; then
+	cat "$DRV/n2h"
+else
+	echo "(not available - qca-nss-drv not loaded / firmware not armed)"
+fi
+
+sec "ECM connection totals ($ECM)"
+if [ -d "$ECM" ]; then
+	for f in ecm_db/connection_count \
+		 ecm_nss_ipv4/accelerated_count ecm_nss_ipv4/pending_accel_count \
+		 ecm_nss_ipv4/pending_decel_count \
+		 ecm_nss_ipv6/accelerated_count ecm_nss_ipv6/pending_accel_count \
+		 ecm_nss_ipv6/pending_decel_count; do
+		[ -r "$ECM/$f" ] && echo "$f: $(cat "$ECM/$f" 2>/dev/null)"
+	done
+else
+	echo "(not available - ecm not loaded)"
+fi
+
+sec "recent NSS kernel messages (dmesg)"
+dmesg 2>/dev/null | grep -i nss | tail -40
+
+sec "hints"
+echo "sysctl -w dev.nss.project.wt_stats=1 enables per-worker-thread firmware"
+echo "statistics under $DRV/project/"

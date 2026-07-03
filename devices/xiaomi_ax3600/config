@@ -133,3 +133,20 @@ CONFIG_PACKAGE_kmod-qca-nss-drv-qdisc=y
 CONFIG_PACKAGE_kmod-qca-nss-drv-igs=y
 CONFIG_PACKAGE_sqm-scripts-nss=y
 CONFIG_PACKAGE_luci-app-sqm=y
+
+## Diagnostics: firmware-path packet mirroring + live NSS statistics viewer;
+## loaded on demand, inert by default.
+CONFIG_PACKAGE_kmod-qca-nss-drv-mirror=y
+CONFIG_PACKAGE_kmod-qca-nss-drv-netlink=y
+CONFIG_PACKAGE_nssinfo=y
+CONFIG_PACKAGE_libnl-nss=y
+
+## edma-dump needs /dev/mem + the busybox devmem applet.
+CONFIG_KERNEL_DEVMEM=y
+CONFIG_BUSYBOX_CUSTOM=y
+CONFIG_BUSYBOX_CONFIG_DEVMEM=y
+
+## Crash forensics: persist the kernel console and panic traces across
+## reboots in the board's ramoops region; the image archives them to
+## /root/pstore on the next boot.
+CONFIG_PACKAGE_kmod-ramoops=y
