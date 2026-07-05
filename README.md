@@ -130,6 +130,30 @@ cp ../Qualcommax_NSS_Builder/devices/xiaomi_ax3600/config .config
 make defconfig && make -j"$(nproc)"
 ```
 
+> [!IMPORTANT]
+> **Updating an existing checkout:** both branches (`nss-edma-rework` and the
+> `edma-nss` feed) are periodically **rebased** — fixes are folded into the
+> commits that own them, so history gets rewritten. A plain `git pull` will
+> fail or produce a broken merge, and `./scripts/feeds update` (which runs
+> `git pull --ff-only` inside `feeds/nss`) fails quietly and leaves the feed
+> **stale** — a common source of build errors that don't reproduce upstream.
+> Update like this instead:
+>
+> ```sh
+> git fetch origin && git reset --hard origin/nss-edma-rework
+> rm -rf feeds/nss package/feeds/nss
+> ./scripts/feeds update -a && ./scripts/feeds install -a
+> make defconfig
+> ```
+>
+> Before reporting a build error, verify you are current: `git log --oneline -1`
+> in the tree and in `feeds/nss` must match the tips of
+> [`nss-edma-rework`](https://github.com/JuliusBairaktaris/openwrt-nss-edma/commits/nss-edma-rework)
+> and [`edma-nss`](https://github.com/JuliusBairaktaris/nss-packages/commits/edma-nss).
+> For other IPQ807x devices, start from `devices/xiaomi_ax3600/config` and only
+> change the target device — it carries the NSS options (firmware version,
+> memory profile) that a from-scratch config gets wrong.
+
 The NSS runtime tools (`nss-up`, `nss-status`, the `nss` boot service, the
 QoS marking CLI/UI) ship as regular packages from the openwrt fork
 (`nss-tools`, `nssqos`, `luci-app-nss`, `luci-app-nssqos`) — plain fork
