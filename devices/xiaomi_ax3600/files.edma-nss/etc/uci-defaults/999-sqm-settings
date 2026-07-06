@@ -1,20 +1,23 @@
 #!/bin/sh
-# Provision the NSS SQM (nss-edma.qos) shaper. Create a proper sqm.wan section
-# only if absent (so user-tuned rates survive sysupgrade) and remove the legacy
-# bogus sqm.eth1 section (it was named 'eth1' but pointed at interface 'wan' and
-# carried no download/upload rates, so it shaped nothing and produced a spurious
-# second SQM start at boot). Rates below are for a ~300/150 Mbit Telekom FTTH
-# line that measures ~337/170 Mbit gross (Telekom over-provisions the tier):
-# download 335000 and upload 165000 are bloat-free under bidirectional
-# saturation on this link (fall back to 295000/142500 if peak-hour testing
-# shows added latency).
+# Provision an NSS SQM (nss-edma.qos) template. Create the sqm.wan section
+# only if absent (so user-tuned settings survive sysupgrade) and remove the
+# legacy bogus sqm.eth1 section (it was named 'eth1' but pointed at interface
+# 'wan' and carried no download/upload rates, so it shaped nothing and produced
+# a spurious second SQM start at boot).
+#
+# The section ships DISABLED: a shaper is only correct at ~90-95% of the rate
+# YOUR line actually delivers, so there is no safe universal default — an
+# enabled default caps everyone with a faster link at these example rates.
+# To use it, set download/upload to your measured line rates (kbit/s, e.g. a
+# 300/150 Mbit line that delivers ~337/170 gross runs bloat-free at
+# 335000/165000) and set enabled='1' (or configure it in LuCI > Network > SQM).
 # Egress keeps a tight CoDel (20ms interval + 150p limit) as the backstop for
 # traffic without an upload IGS tree (Wi-Fi clients); the per-port IGS trees
-# (igs_upload) give wired upload true per-flow isolation. Adjust to your link.
+# (igs_upload) give wired upload true per-flow isolation.
 if [ -z "$(uci -q get sqm.wan)" ]; then
 	uci -q batch <<-EOI
 		set sqm.wan=queue
-		set sqm.wan.enabled='1'
+		set sqm.wan.enabled='0'
 		set sqm.wan.interface='wan'
 		set sqm.wan.download='335000'
 		set sqm.wan.upload='165000'
