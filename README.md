@@ -41,7 +41,8 @@ OpenWrt first via the [official guide](https://openwrt.org/toh/xiaomi/ax3600).
 stack (Wi-Fi in host mode; the NSS modules are loaded but inert). The `nss`
 service (`/etc/init.d/nss`, runs `/usr/sbin/nss-up`) then arms the NSS data
 plane, boots the firmware, moves the radios onto the wifili path and starts
-ECM + SQM; its output lands in the system log (`logread -e nss`). **Every boot
+ECM (and SQM, once you have configured it); its output lands in the system
+log (`logread -e nss`). **Every boot
 starts on the stock host-only stack** before the service arms NSS, so a reboot is
 always a safe way back — the universal recovery path.
 To stay on the host stack permanently:
@@ -67,10 +68,10 @@ included desktop-router config:
 | **Connection offload** | ECM (`kmod-qca-nss-ecm`), PPPoE manager (`kmod-qca-nss-drv-pppoe`) — IPv4 NAT, IPv6 routing, PPPoE-over-VLAN |
 | **Bridge offload** | `kmod-qca-nss-drv-bridge-mgr` — wired LAN bridging in hardware |
 | **Multicast** | `kmod-qca-mcs` — same-subnet multicast hardware-bridged to snooped members |
-| **SQM** | NSS qdiscs (`-qdisc`/`-igs`) + `sqm-scripts-nss` (`nss-edma.qos`, DSCP fast lane both directions) + `luci-app-sqm` |
+| **SQM** | NSS qdiscs (`-qdisc`/`-igs`) + `sqm-scripts-nss` (`nss-edma.qos`, DSCP fast lane both directions) + `luci-app-sqm`. Ships as a **disabled template**: set `download`/`upload` to ~90-95 % of your measured line rate and enable it (LuCI **Network → SQM** or `uci`) — there is no safe universal default rate |
 | **QoS marking** | `nssqos` + `luci-app-nssqos` — DSCP marking & fast-lane prioritization rules (CLI `/etc/config/nssqos`, LuCI **Network → QoS Marking (NSS)**), effective on accelerated flows; the applied class shows per flow in the **DSCP** column of **Status → Realtime → Connections** |
 | **Wi-Fi** | ath11k NSS offload (wifili) on both radios (`CONFIG_ATH11K_NSS_SUPPORT`); enabled by default (SSID `OpenWrt`, WPA2/WPA3, password `openwrt-nss` — change it) |
-| **Diagnostics** | `nss-status` CLI health report (now incl. fast-lane counters) + LuCI **Status → NSS Offload** page |
+| **Diagnostics** | `nss-status` CLI health report (now incl. fast-lane counters) + LuCI **Status → NSS Offload** page + per-station firmware Wi-Fi counters (`/sys/kernel/debug/ieee80211/phy*/netdev:*/stations/<mac>/nss_stats`: A-MSDU aggregation, MPDU retries) |
 | **Firmware/profile** | `NSS.FW.12.5-210-HK.R`, MEDIUM memory profile (512 MB) |
 | **Security** | OpenSSH only (post-quantum KEX, AEAD/ETM, RSA ≥ 3072), `PKG_*` hardening (ASLR/PIE, stack protector, FORTIFY_3, RELRO, seccomp), WAN DROP + BCP38, HTTPS redirect, OQS provider in OpenSSL |
 | **Toolchain** | GCC 15 + Graphite, Binutils 2.46, Mold linker, LTO, `-mcpu=cortex-a53+crc+crypto`; ccache off |
@@ -158,7 +159,7 @@ The NSS runtime tools (`nss-up`, `nss-status`, the `nss` boot service, the
 QoS marking CLI/UI) ship as regular packages from the openwrt fork
 (`nss-tools`, `nssqos`, `luci-app-nss`, `luci-app-nssqos`) — plain fork
 checkouts get them by selecting the packages, no builder needed. The few
-remaining overlay files (device SQM rates, wireless defaults, SSH config)
+remaining overlay files (the disabled SQM template, wireless defaults, SSH config)
 are under `devices/xiaomi_ax3600/files*/` — copy them into the image with a
 `files/` directory or the builder pipeline. See [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md)
 for the full customization guide and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
@@ -170,7 +171,7 @@ for how the pipeline works.
 devices/xiaomi_ax3600/
   config                 # the .config (target, toolchain, hardening, NSS packages)
   files/                 # base rootfs overlay (sshd_config, QoL uci-defaults)
-  files.edma-nss/        # edma-nss overlay (device SQM rates, rc.local)
+  files.edma-nss/        # edma-nss overlay (SQM template, rc.local)
 scripts/                 # check-updates, prepare-build, prune-releases (tested, linted)
 docs/                    # CUSTOMIZE.md, ARCHITECTURE.md
 .github/workflows/       # build.yml (check → build → prune), lint.yml
