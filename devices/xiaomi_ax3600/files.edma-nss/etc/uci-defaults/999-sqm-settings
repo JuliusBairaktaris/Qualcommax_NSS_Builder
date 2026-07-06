@@ -34,6 +34,14 @@ if [ -z "$(uci -q get sqm.wan)" ]; then
 		set sqm.wan.igs_upload='lan1 lan2 lan3'
 	EOI
 fi
-uci -q delete sqm.eth1
+# Remove the legacy builder-shipped sqm.eth1 only while it is still the
+# rate-less husk (without rates it never shaped anything, it just caused a
+# spurious second SQM start at boot). A section the user gave rates to is
+# their configuration — a settings-preserving sysupgrade must never touch it.
+if [ -n "$(uci -q get sqm.eth1)" ] \
+   && [ -z "$(uci -q get sqm.eth1.download)" ] \
+   && [ -z "$(uci -q get sqm.eth1.upload)" ]; then
+	uci -q delete sqm.eth1
+fi
 uci -q commit sqm
 exit 0
