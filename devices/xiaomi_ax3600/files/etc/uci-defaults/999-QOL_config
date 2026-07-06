@@ -13,9 +13,9 @@ set bcp38.cfg018e45.enabled='1'
 set bcp38.cfg018e45.interface='wan'
 
 # NTP: serve time locally (sysntpd) and advertise this router to LAN clients
-# via DHCP option 42 (which carries IP addresses, not hostnames).
+# via DHCP option 42 (which carries IP addresses, not hostnames). The address
+# is derived from the live LAN config, not hardcoded.
 set system.ntp.enable_server='1'
-add_list dhcp.lan.dhcp_option='42,192.168.1.1'
 
 # uHTTPd settings
 set uhttpd.main.redirect_https='1'
@@ -25,3 +25,9 @@ set openssl.oqsprovider=provider
 set openssl.oqsprovider.enabled='1'
 
 EOI
+
+# DHCP option 42 needs the router's actual LAN address - derive it from the
+# live config (uci-defaults run after the board defaults exist).
+lan_ip=$(uci -q get network.lan.ipaddr)
+[ -n "$lan_ip" ] && uci -q add_list dhcp.lan.dhcp_option="42,${lan_ip%%/*}"
+exit 0
