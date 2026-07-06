@@ -94,7 +94,10 @@ CONFIG_PACKAGE_attendedsysupgrade-common=n
 
 # Disable unnecessary debugging for Wi-Fi driver.
 CONFIG_ATH11K_DEBUGFS_HTT_STATS=n
-CONFIG_ATH11K_DEBUGFS_STA=n
+# Per-station ath11k debugfs (hosts the wifili per-peer firmware stats file
+# nss_stats - A-MSDU aggregation, OFDMA and MPDU retry counters for offloaded
+# stations - plus the ext tx/rx stats histograms).
+CONFIG_ATH11K_DEBUGFS_STA=y
 # Disables thermal throttling support for ath11k.
 CONFIG_ATH11K_THERMAL=n
 
