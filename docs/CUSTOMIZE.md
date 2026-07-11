@@ -60,8 +60,10 @@ network does not use them. Each is enabled by adding its package to
 | GRE | `CONFIG_PACKAGE_kmod-gre=y` | ECM GRE support. |
 
 Each package brings its own init/userland; `nss-up` does not start them. Not
-available on this platform/firmware: IPsec (ESP) offload, TLS/DTLS, Wi-Fi mesh,
-CoDel ECN marking (see the wiki Limitations page).
+available on this platform/firmware: IPsec (ESP) offload, TLS/DTLS, CoDel ECN
+marking (see the wiki Limitations page). Wi-Fi mesh offload works on an
+11.4-firmware build (`NSS_FIRMWARE_VERSION_11_4` + `ATH11K_NSS_MESH_SUPPORT`);
+only the default 12.5 firmware blocks it.
 
 > Routed multicast note: `nss-up` carries a **commented-out** start stage for a
 > multicast daemon — it is not run in the default image (no IPTV source on the

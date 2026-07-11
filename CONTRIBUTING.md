@@ -9,7 +9,7 @@ Thanks for your interest. Particularly valuable contributions:
 ## Before opening a PR
 
 - Run `scripts/tests/prune-releases.test.sh` if you touched `scripts/prune-releases.sh`.
-- The **Lint** workflow runs `actionlint`, `shellcheck`, and `yamllint` on every PR — if it goes red, fix the issue rather than disabling the check.
+- The **Lint** workflow runs `actionlint`, `shellcheck`, and `yamllint` on PRs that touch `.github/workflows/**` or `scripts/**` — if it goes red, fix the issue rather than disabling the check.
 - Keep changes focused.
 
 ## Commit messages

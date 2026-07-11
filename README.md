@@ -94,8 +94,10 @@ reference network does not use them. Add the package to
 | MACVLAN | `CONFIG_PACKAGE_kmod-macvlan=y` | ECM support via kernel patch `0962`. |
 | GRE | `CONFIG_PACKAGE_kmod-gre=y` | ECM GRE support builds. |
 
-Not available on this platform/firmware: IPsec (ESP) offload, TLS/DTLS, Wi-Fi
-mesh, and CoDel ECN marking. See the
+Not available on this platform/firmware: IPsec (ESP) offload, TLS/DTLS, and
+CoDel ECN marking. (Wi-Fi mesh offload works on an 11.4-firmware build —
+`NSS_FIRMWARE_VERSION_11_4` + `ATH11K_NSS_MESH_SUPPORT`; only the default 12.5
+firmware blocks it.) See the
 [Limitations](https://github.com/JuliusBairaktaris/openwrt-nss-edma/wiki/Limitations-and-Roadmap)
 page.
 

@@ -9,7 +9,7 @@ Only the **latest release** is supported. Older releases are routinely deleted b
 This template builds firmware images. There are two distinct vulnerability classes:
 
 1. **Build pipeline** (this repo's workflow, scripts, default config) — open a private security advisory via GitHub: **Security -> Report a vulnerability**.
-2. **OpenWrt itself, NSS drivers, packages** — please report to the upstream project ([qosmio/openwrt-ipq](https://github.com/qosmio/openwrt-ipq), [openwrt/openwrt](https://github.com/openwrt/openwrt), or the relevant package maintainer). This repo only assembles upstream sources.
+2. **OpenWrt itself, NSS drivers, packages** — please report to the source project: [JuliusBairaktaris/openwrt-nss-edma](https://github.com/JuliusBairaktaris/openwrt-nss-edma) (the OpenWrt fork, rebased directly onto openwrt/main) and its [nss-packages](https://github.com/JuliusBairaktaris/nss-packages) feed, or [openwrt/openwrt](https://github.com/openwrt/openwrt) / the relevant package maintainer for stock components. This repo only assembles those sources.
 
 Please do not open a public issue for a security report.
 
