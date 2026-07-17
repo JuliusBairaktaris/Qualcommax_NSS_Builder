@@ -37,16 +37,16 @@ Or via LuCI: **System → Backup / Flash Firmware**, upload, uncheck "Keep
 settings" for a first-time flash. Coming from stock Xiaomi firmware? Install
 OpenWrt first via the [official guide](https://openwrt.org/toh/xiaomi/ax3600).
 
-**Runtime model:** the image boots as a normal OpenWrt system on the plain host
-stack (Wi-Fi in host mode; the NSS modules are loaded but inert). The `nss`
-service (`/etc/init.d/nss`, runs `/usr/sbin/nss-up`) then arms the NSS data
-plane, boots the firmware, moves the radios onto the wifili path and starts
-ECM (and SQM, once you have configured it); its output lands in the system
-log (`logread -e nss`). **Every boot
-starts on the stock host-only stack** before the service arms NSS, so a reboot is
-always a safe way back — the universal recovery path.
-To stay on the host stack permanently:
-`uci set nss.general.enabled='0'; uci commit nss` (survives sysupgrade).
+**Runtime model:** the `nss` service (`/etc/init.d/nss`) makes the data-path
+decision once, early in boot: it arms the NSS data plane, boots the firmware,
+and loads Wi-Fi with offload already selected — the radios come up directly
+on the wifili path, with no later rebind. Its `/usr/sbin/nss-up` instance
+then layers ECM (and SQM, once you have configured it) on top as the network
+comes up; output lands in the system log (`logread -e nss`). If arming or
+the Wi-Fi offload registration fails, the boot falls back to host-mode Wi-Fi
+and the host stack on its own. **The universal recovery path** is the uci
+flag: `uci set nss.general.enabled='0'; uci commit nss` (survives
+sysupgrade) — with it set, every boot is a stock host-only system.
 
 Check plane health any time with `nss-status` over ssh, or in LuCI under
 **Status → NSS Offload**.
