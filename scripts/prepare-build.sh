@@ -39,7 +39,10 @@ if [[ -n "$FEEDS" ]]; then
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
     log::info "  $line"
-    echo "$line" >>feeds.conf
+    # Idempotent: this script is re-run over an existing tree, and a plain
+    # append duplicates every custom feed on each pass - which then makes
+    # `feeds update` fetch the same feed repeatedly under one name.
+    grep -qxF "$line" feeds.conf || echo "$line" >>feeds.conf
     # Update + install each custom feed individually so failures are obvious.
     feed_name="$(awk '{print $2}' <<<"$line")"
     log::info "Updating feed: $feed_name"
