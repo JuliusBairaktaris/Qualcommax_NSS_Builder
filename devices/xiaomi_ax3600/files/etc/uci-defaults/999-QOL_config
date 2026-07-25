@@ -8,7 +8,9 @@ set firewall.@zone[1].input='DROP'
 set firewall.@zone[1].forward='DROP'
 
 # Network settings (BCP38 anti-spoofing on WAN).
-# Packet steering / flow offload are variant-specific — see files.<variant>/etc/uci-defaults/998-net-offload.
+# Packet steering is set by the nss-tools package, not here: its 98-nss-offload
+# uci-default disables OpenWrt's packet_steering service for the NSS data path.
+# Kernel flow offloading needs nothing written — OpenWrt already ships it off.
 set bcp38.cfg018e45.enabled='1'
 set bcp38.cfg018e45.interface='wan'
 
