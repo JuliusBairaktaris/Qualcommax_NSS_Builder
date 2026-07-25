@@ -61,8 +61,10 @@ for p in "$BUILDER_REPO"/patches/feeds/*/*.patch; do
   if patch -p1 -d "$feed" --dry-run --forward <"$p" >/dev/null 2>&1; then
     log::info "Patching $feed with $(basename "$p")"
     patch -p1 -d "$feed" --forward <"$p"
+  elif patch -p1 -d "$feed" --dry-run --reverse <"$p" >/dev/null 2>&1; then
+    log::info "Skipping $(basename "$p") (already applied)"
   else
-    log::info "Skipping $(basename "$p") (already applied or not applicable)"
+    log::die "$(basename "$p") does not apply to $feed"
   fi
 done
 shopt -u nullglob
@@ -71,6 +73,24 @@ shopt -u nullglob
 log::info "Assembling .config from devices/$DEVICE/config"
 cp "$DEVICE_DIR/config" .config
 make defconfig
+
+# 2b. Verify defconfig honoured the device config. Kconfig silently drops a
+#     requested symbol whose dependencies are unmet, which is how images have
+#     shipped without pinned options before (ccache, ramoops, the NSS firmware
+#     version) - a build that quietly leaves a package out is worse than one
+#     that stops. Only the requested-on symbols are asserted: a requested "=n"
+#     legitimately comes back on when another selected package depends on it.
+log::info "Verifying defconfig kept the requested symbols"
+dropped=()
+while IFS= read -r req; do
+  grep -qxF "$req" .config || dropped+=("$req")
+done < <(grep -E '^CONFIG_[A-Za-z0-9_-]+=' "$DEVICE_DIR/config" | grep -vE '=n$')
+
+if ((${#dropped[@]})); then
+  log::error "defconfig dropped ${#dropped[@]} requested symbol(s) from devices/$DEVICE/config:"
+  printf '  %s\n' "${dropped[@]}" >&2
+  log::die "add the missing dependency or remove the line - do not ship a silently reduced image"
+fi
 
 # 3. Disable bundling of custom feeds into the image (declared src-git, but we only want
 #    the packages explicitly enabled in .config — not every package in the feed).
