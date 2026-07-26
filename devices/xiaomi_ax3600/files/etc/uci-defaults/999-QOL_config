@@ -5,7 +5,6 @@ uci -q batch << EOI
 
 # Firewall settings
 set firewall.@zone[1].input='DROP'
-set firewall.@zone[1].forward='DROP'
 
 # Network settings (BCP38 anti-spoofing on WAN).
 # Packet steering is set by the nss-tools package, not here: its 98-nss-offload
@@ -21,10 +20,6 @@ set system.ntp.enable_server='1'
 
 # uHTTPd settings
 set uhttpd.main.redirect_https='1'
-
-# OpenSSL OQS provider
-set openssl.oqsprovider=provider
-set openssl.oqsprovider.enabled='1'
 
 EOI
 
