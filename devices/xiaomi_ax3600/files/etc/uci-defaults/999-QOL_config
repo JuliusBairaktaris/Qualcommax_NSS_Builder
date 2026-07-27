@@ -1,3 +1,11 @@
+# This file ships in the image, so it runs again after every
+# settings-preserving sysupgrade. Apply the opinionated defaults once and
+# record that, or a user who changed any of them gets them silently reset on
+# their next upgrade.
+# The marker lives in uci because /etc/config is preserved across sysupgrade;
+# clear it to have these defaults applied again.
+[ "$(uci -q get system.@system[0].qol_defaults)" = 1 ] && exit 0
+
 uci -q batch << EOI
 
 # Wireless defaults live in the static /etc/config/wireless (radios enabled
@@ -21,7 +29,11 @@ set uhttpd.main.redirect_https='1'
 EOI
 
 # DHCP option 42 needs the router's actual LAN address - derive it from the
-# live config (uci-defaults run after the board defaults exist).
+# live config (uci-defaults run after the board defaults exist). add_list does
+# not deduplicate, so check for an existing option 42 first.
 lan_ip=$(uci -q get network.lan.ipaddr)
-[ -n "$lan_ip" ] && uci -q add_list dhcp.lan.dhcp_option="42,${lan_ip%%/*}"
+[ -n "$lan_ip" ] && ! uci -q get dhcp.lan.dhcp_option | tr ' ' '\n' | grep -q '^42,' \
+	&& uci -q add_list dhcp.lan.dhcp_option="42,${lan_ip%%/*}"
+
+uci -q set system.@system[0].qol_defaults='1'
 exit 0
