@@ -25,8 +25,14 @@ jobs:
       - name: Run actionlint
         run: |
           set -euo pipefail
-          curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
-            | bash -s -- 1.7.7
+          # Pinned to the commit v1.7.7 points at, not main: this script is
+          # piped into bash, so a mutable ref makes anyone who can land on
+          # actionlint's main a committer to our CI.
+          curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/03d0035246f3e81f36aed592ffb4bebf33a03106/scripts/download-actionlint.bash \
+            -o download-actionlint.bash
+          echo "221d1d16c03e4e4fcd867de34104e8d479bdce20ccdfa553b9a5c0dc29bf6af2  download-actionlint.bash" \
+            | sha256sum -c -
+          bash download-actionlint.bash 1.7.7
           ./actionlint -color
 
   shellcheck:
