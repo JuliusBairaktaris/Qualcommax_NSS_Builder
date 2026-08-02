@@ -1,7 +1,12 @@
 # Complete wireless config for the AX3600 (radio paths are fixed for this
-# board, so shipping it statically beats first-boot detection: the radios are
-# configured and ENABLED from the very first boot). CHANGE THE DEFAULT
-# PASSWORD (option key) on first login — it is public in the builder repo.
+# board, so shipping it statically beats first-boot detection).
+#
+# The interfaces ship disabled with no key, exactly as upstream's wifi detect
+# leaves a board with no factory credentials. A published image cannot carry a
+# working one: the key would be readable in this repo, so every flashed router
+# would come up broadcasting an AP that anyone in range can join - and reach a
+# LuCI whose root password is still unset. Set ssid/key over the LAN port,
+# then `uci set wireless.default_radio0.disabled=0`.
 
 config wifi-device 'radio0'
 	option type 'mac80211'
@@ -15,9 +20,10 @@ config wifi-iface 'default_radio0'
 	option device 'radio0'
 	option network 'lan'
 	option mode 'ap'
+	option disabled '1'
 	option ssid 'OpenWrt'
 	option encryption 'sae-mixed'
-	option key 'openwrt-nss'
+	option key ''
 	option wnm_sleep_mode '1'
 	option ieee80211k '1'
 	option time_advertisement '2'
@@ -37,9 +43,10 @@ config wifi-iface 'default_radio1'
 	option device 'radio1'
 	option network 'lan'
 	option mode 'ap'
+	option disabled '1'
 	option ssid 'OpenWrt'
 	option encryption 'sae-mixed'
-	option key 'openwrt-nss'
+	option key ''
 	option wnm_sleep_mode '1'
 	option ieee80211k '1'
 	option time_advertisement '2'

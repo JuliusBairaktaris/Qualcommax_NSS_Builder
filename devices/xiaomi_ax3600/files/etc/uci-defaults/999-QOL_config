@@ -8,8 +8,8 @@
 
 uci -q batch << EOI
 
-# Wireless defaults live in the static /etc/config/wireless (radios enabled
-# and configured from the first boot - no detection race).
+# Wireless defaults live in the static /etc/config/wireless (configured from
+# the first boot - no detection race - but disabled until the user sets a key).
 
 # Firewall settings
 set firewall.@zone[1].input='DROP'
