@@ -1,0 +1,6 @@
+# actionlint 1.7.7 predates the ubuntu-26.04 runner image and rejects the label
+# as unknown. Declaring it here is the documented way to teach actionlint a
+# label it does not ship in its own list.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
