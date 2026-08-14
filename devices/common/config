@@ -1,0 +1,152 @@
+#
+# Build config shared by every device in this repo — the NSS offload stack and
+# everything else that does not depend on which board is being built.
+#
+# prepare-build.sh concatenates this with devices/<device>/config (that file
+# wins on any symbol set in both) and runs `make defconfig`.
+#
+
+## Target Platform
+CONFIG_TARGET_qualcommax=y
+CONFIG_TARGET_qualcommax_ipq807x=y
+
+## Sysupgrade-only images: the audience is people who already run OpenWrt, so
+## no initramfs/factory install images. initramfs is default-y for this target,
+## and the Asus RT-AX89X's recovery .trx caps its kernel at 16 MiB where the NSS
+## initramfs kernel is ~21 MiB, so it cannot be built at all.
+# CONFIG_TARGET_ROOTFS_INITRAMFS is not set
+
+## Compiler and Toolchain Optimization
+CONFIG_BINUTILS_USE_VERSION_2_46=y
+CONFIG_DEVEL=y
+CONFIG_GCC_USE_VERSION_15=y
+CONFIG_TARGET_OPTIMIZATION="-O2 -pipe -mcpu=cortex-a53"
+CONFIG_TARGET_OPTIONS=y
+CONFIG_TOOLCHAINOPTS=y
+CONFIG_USE_GC_SECTIONS=y
+CONFIG_USE_LTO=y
+CONFIG_USE_MOLD=y
+CONFIG_ZLIB_OPTIMIZE_SPEED=y
+# CONFIG_CCACHE is not set
+
+## Kernel Build Options
+CONFIG_BUILD_PATENTED=y
+CONFIG_EXPERIMENTAL=y
+
+# Hardening build options
+CONFIG_GCC_DEFAULT_PIE=y
+CONFIG_GCC_DEFAULT_SSP=y
+CONFIG_PKG_CHECK_FORMAT_SECURITY=y
+CONFIG_PKG_ASLR_PIE_ALL=y
+CONFIG_PKG_CC_STACKPROTECTOR_ALL=y
+CONFIG_KERNEL_CC_STACKPROTECTOR_STRONG=y
+CONFIG_PKG_FORTIFY_SOURCE_3=y
+CONFIG_PKG_RELRO_FULL=y
+CONFIG_USE_SECCOMP=y
+
+## SSH Server Configuration
+CONFIG_PACKAGE_dropbear=n
+CONFIG_PACKAGE_openssh-moduli=y
+CONFIG_PACKAGE_openssh-server=y
+CONFIG_PACKAGE_openssh-sftp-server=y
+
+## SSL and Cryptography Configuration
+CONFIG_LUA_ECO_MBEDTLS=n
+CONFIG_LUA_ECO_OPENSSL=y
+CONFIG_OPENSSL_OPTIMIZE_SPEED=y
+CONFIG_PACKAGE_apk-mbedtls=n
+CONFIG_PACKAGE_apk-openssl=y
+CONFIG_PACKAGE_libopenssl=y
+CONFIG_PACKAGE_libopenssl-oqsprovider=y
+CONFIG_PACKAGE_libustream-mbedtls=n
+CONFIG_PACKAGE_libustream-openssl=y
+CONFIG_PACKAGE_luci-ssl-openssl=y
+CONFIG_PACKAGE_luci-app-bcp38=y
+
+## Additional Packages and Utilities
+CONFIG_PACKAGE_curl=y
+CONFIG_PACKAGE_htop=y
+CONFIG_HTOP_LMSENSORS=n
+CONFIG_PACKAGE_iperf3=y
+CONFIG_LIBCURL_MBEDTLS=n
+CONFIG_LIBCURL_OPENSSL=y
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-app-firewall=y
+CONFIG_PACKAGE_wpad-openssl=y
+
+## Redundant Default Packages
+CONFIG_PACKAGE_wpad-basic-mbedtls=n
+CONFIG_PACKAGE_luci-app-attendedsysupgrade=n
+CONFIG_PACKAGE_attendedsysupgrade-common=n
+
+# Disable unnecessary debugging for Wi-Fi driver.
+CONFIG_ATH11K_DEBUGFS_HTT_STATS=n
+# Per-station ath11k debugfs (hosts the wifili per-peer firmware stats file
+# nss_stats - A-MSDU aggregation, OFDMA and MPDU retry counters for offloaded
+# stations - plus the ext tx/rx stats histograms).
+CONFIG_ATH11K_DEBUGFS_STA=y
+
+## NSS data plane + connection offload (ECM, PPPoE).
+## kmod-qca-ppe-nss (the data-plane glue) is pulled in by kmod-qca-nss-drv.
+CONFIG_PACKAGE_kmod-qca-nss-drv=y
+CONFIG_PACKAGE_kmod-qca-nss-ecm=y
+CONFIG_PACKAGE_kmod-qca-nss-drv-pppoe=y
+## kmod-qca-nss-drv-bridge-mgr: hardware offload of wired LAN-bridge forwarding
+## (brought up by nss-up alongside the rest of the plane).
+CONFIG_PACKAGE_kmod-qca-nss-drv-bridge-mgr=y
+## kmod-qca-mcs: IGMP/MLD bridge snooping; enables the ECM multicast classifier
+## (ECM_MULTICAST_ENABLE) so snooped groups replicate in PPE hardware instead of
+## flooding to the host. Loaded by nss-up before ECM. Depends on the mroute
+## kernel options (kept explicit here).
+CONFIG_PACKAGE_kmod-qca-mcs=y
+CONFIG_KERNEL_IP_MROUTE=y
+CONFIG_KERNEL_IPV6_MROUTE=y
+## Same-subnet multicast is hardware-bridged (switchdev MDB -> PPE) with the
+## above. Routed L3 multicast (IPTV WAN->LAN) additionally needs a userspace
+## mroute daemon to populate the kernel MFC; ECM then offloads each MFC entry.
+## Not bundled - add igmpproxy (or smcroute) in your fork if you have a WAN
+## multicast source. See docs/CUSTOMIZE.md.
+# CONFIG_PACKAGE_igmpproxy is not set
+CONFIG_NSS_FIRMWARE_VERSION_12_5=y
+
+## ath11k NSS Wi-Fi offload (wifili). Boots host-mode (nss_offload=0,
+## frame_mode=2); /usr/sbin/nss-up moves the radios onto the NSS data path.
+CONFIG_ATH11K_NSS_SUPPORT=y
+CONFIG_PACKAGE_MAC80211_NSS_SUPPORT=y
+
+## NSS qdisc/SQM (nss-edma.qos) + the SQM LuCI app
+CONFIG_PACKAGE_kmod-qca-nss-drv-qdisc=y
+CONFIG_PACKAGE_kmod-qca-nss-drv-igs=y
+CONFIG_PACKAGE_sqm-scripts-nss=y
+CONFIG_PACKAGE_luci-app-sqm=y
+
+## NSS runtime tools from the openwrt fork's nss-tools package: the 'nss'
+## boot service + nss-up bring-up, nss-status health report (Status -> NSS
+## Offload in LuCI) and edma-dump register capture. nss-tools pulls the whole
+## NSS runtime set via dependencies, so a plain fork checkout without this
+## builder gets the same stack by selecting it.
+CONFIG_PACKAGE_nss-tools=y
+CONFIG_PACKAGE_luci-app-nss=y
+
+## DSCP marking + SQM fast-lane prioritization. CLI: /etc/config/nssqos
+## (rendered into the standalone nftables table 'inet nssqos'); UI:
+## Network -> QoS Marking (NSS). Works on NSS-accelerated flows.
+CONFIG_PACKAGE_nssqos=y
+CONFIG_PACKAGE_luci-app-nssqos=y
+
+## Diagnostics: firmware-path packet mirroring + live NSS statistics viewer;
+## loaded on demand, inert by default.
+CONFIG_PACKAGE_kmod-qca-nss-drv-mirror=y
+CONFIG_PACKAGE_kmod-qca-nss-drv-netlink=y
+CONFIG_PACKAGE_nssinfo=y
+CONFIG_PACKAGE_libnl-nss=y
+
+## edma-dump needs /dev/mem + the busybox devmem applet.
+CONFIG_KERNEL_DEVMEM=y
+CONFIG_BUSYBOX_CUSTOM=y
+CONFIG_BUSYBOX_CONFIG_DEVMEM=y
+
+## Crash forensics: persist the kernel console and panic traces across
+## reboots in the board's ramoops region; the image archives them to
+## /root/pstore on the next boot.
+CONFIG_PACKAGE_kmod-ramoops=y

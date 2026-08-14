@@ -1,0 +1,21 @@
+#
+# Every 512 MB ipq807x board except the Xiaomi AX3600, which has its own
+# device directory (same image plus board-specific overlay files).
+#
+# Concatenated onto devices/common/config by prepare-build.sh. See
+# devices/ipq807x-1g/config for why the groups are split by memory profile and
+# why nothing checks that a board is in the right one.
+#
+
+CONFIG_TARGET_MULTI_PROFILE=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+
+CONFIG_ATH11K_MEM_PROFILE_512M=y
+CONFIG_NSS_MEM_PROFILE_MEDIUM=y
+
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_cmcc_rm2-6=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_compex_wpq873=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_edimax_cax1800=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_linksys_mx4200v1=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_redmi_ax6=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_zte_mf269=y

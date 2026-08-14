@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Prepare a checked-out OpenWrt tree for the build:
 #   1. append the custom feeds and run feeds update/install
-#   2. assemble .config from the device config, run defconfig
+#   2. assemble .config from the common + device configs, run defconfig
 #   3. disable bundling of custom feeds into the image
-#   4. layer overlay files: device -> device/variant (most specific wins)
+#   4. layer overlay files: common -> device, each with its variant on top
+#      (most specific wins)
 #
 # Required env:
 #   OPENWRT_DIR   path to the checked-out OpenWrt source (a git work tree)
@@ -25,9 +26,11 @@ source "$(dirname -- "$0")/lib/log.sh"
 : "${DEVICE:?DEVICE required}"
 
 FEEDS="${FEEDS:-}"
+COMMON_DIR="$BUILDER_REPO/devices/common"
 DEVICE_DIR="$BUILDER_REPO/devices/$DEVICE"
 
 [[ -f "$DEVICE_DIR/config" ]] || log::die "$DEVICE_DIR/config not found"
+[[ -f "$COMMON_DIR/config" ]] || log::die "$COMMON_DIR/config not found"
 
 cd "$OPENWRT_DIR"
 
@@ -72,9 +75,10 @@ for p in "$BUILDER_REPO"/patches/feeds/*/*.patch; do
 done
 shopt -u nullglob
 
-# 2. Assemble .config from the device config, then resolve.
-log::info "Assembling .config from devices/$DEVICE/config"
-cp "$DEVICE_DIR/config" .config
+# 2. Assemble .config from the common + device configs, then resolve. The
+#    device config comes last so it wins on any symbol set in both.
+log::info "Assembling .config from devices/common/config + devices/$DEVICE/config"
+cat "$COMMON_DIR/config" "$DEVICE_DIR/config" >.config
 make defconfig
 
 # 2b. Verify defconfig honoured the device config. Kconfig silently drops a
@@ -87,10 +91,13 @@ log::info "Verifying defconfig kept the requested symbols"
 dropped=()
 while IFS= read -r req; do
   grep -qxF "$req" .config || dropped+=("$req")
-done < <(grep -E '^CONFIG_[A-Za-z0-9_-]+=' "$DEVICE_DIR/config" | grep -vE '=n$')
+done < <(cat "$COMMON_DIR/config" "$DEVICE_DIR/config" |
+  grep -E '^CONFIG_[A-Za-z0-9_-]+=' |
+  awk -F= '{ last[$1] = $0 } END { for (s in last) print last[s] }' |
+  grep -vE '=n$')
 
 if ((${#dropped[@]})); then
-  log::error "defconfig dropped ${#dropped[@]} requested symbol(s) from devices/$DEVICE/config:"
+  log::error "defconfig dropped ${#dropped[@]} requested symbol(s) for device '$DEVICE':"
   printf '  %s\n' "${dropped[@]}" >&2
   log::die "add the missing dependency or remove the line - do not ship a silently reduced image"
 fi
@@ -107,10 +114,12 @@ if [[ -n "$FEEDS" ]]; then
 fi
 sed -i 's/^CONFIG_FEED_luci_extra=.*/# CONFIG_FEED_luci_extra is not set/' .config || true
 
-# 4. Layer overlay files: device -> device/variant (most specific wins).
+# 4. Layer overlay files: common -> device, variant on top of each (most
+#    specific wins).
 log::info "Applying overlay files"
 mkdir -p files
-for src in "$DEVICE_DIR/files" "$DEVICE_DIR/files.$VARIANT"; do
+for src in "$COMMON_DIR/files" "$COMMON_DIR/files.$VARIANT" \
+  "$DEVICE_DIR/files" "$DEVICE_DIR/files.$VARIANT"; do
   if [[ -d "$src" ]]; then
     log::info "  $src"
     rsync -a "$src/" files/

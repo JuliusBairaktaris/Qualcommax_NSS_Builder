@@ -1,0 +1,57 @@
+#
+# Every ipq807x board with 1 GB or more of RAM, in one image set.
+#
+# Concatenated onto devices/common/config by prepare-build.sh. The group exists
+# because the ath11k and NSS memory profiles are compile-time and image-wide, so
+# boards can only share a build when they share a profile.
+#
+# Grouping is by hand. kmod-ath11k carries its own per-board profile selects,
+# but they key off the single-profile choice symbol, which a multi-device build
+# never sets - so the profile below is the only thing deciding, and a board
+# listed in the wrong group gets an image built for the wrong amount of RAM with
+# nothing in the build to say so. Keep the three groups matching that block.
+#
+# No device-specific package pruning here: DEVICE_PACKAGES pulls in what each
+# board needs (ath10k firmware, USB, 10G PHY), and disabling any of it would
+# ship a broken image for the boards that do have the hardware. PER_DEVICE_ROOTFS
+# is what keeps those out of the images that do not - without it every image in
+# the group carries every other board's packages.
+#
+
+CONFIG_TARGET_MULTI_PROFILE=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+
+CONFIG_ATH11K_MEM_PROFILE_1G=y
+CONFIG_NSS_MEM_PROFILE_HIGH=y
+
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_aliyun_ap8220=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_arcadyan_aw1000=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_asus_rt-ax89x=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_buffalo_wxr-5950ax12=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_dynalink_dl-wrx36=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_edgecore_eap102=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_linksys_homewrk=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_linksys_mx4200v2=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_linksys_mx4300=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_linksys_mx5300=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_linksys_mx8500=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_netgear_rax120v2=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_netgear_rbr750=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_netgear_rbs750=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_netgear_sxr80=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_netgear_sxs80=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_netgear_wax620=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_netgear_wax630=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_prpl_haze=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_qnap_301w=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_spectrum_sax1v1k=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_tcl_linkhub-hh500v=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_tplink_deco-x80-5g=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_tplink_eap620hd-v1=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_tplink_eap660hd-v1=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_xiaomi_ax9000=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_yuncore_ax880=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_zbtlink_zbt-z800ax=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_zyxel_nbg7815=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_zyxel_nwa110ax=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_zyxel_nwa210ax=y

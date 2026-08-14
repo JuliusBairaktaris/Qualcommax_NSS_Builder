@@ -1,8 +1,8 @@
 # Customizing the build
 
 All knobs live in the **`env:` block of [`.github/workflows/build.yml`](../.github/workflows/build.yml)**,
-the **[device `.config`](../devices/xiaomi_ax3600/config)**, and the overlay directories. This page
-shows what each one does.
+the **[shared `.config`](../devices/common/config)** plus its per-device
+companion, and the overlay directories. This page shows what each one does.
 
 ## Build parameters (`build.yml` → `env:`)
 
@@ -13,12 +13,35 @@ env:
   NSS_REPO: JuliusBairaktaris/nss-packages            # NSS packages repo (blank to disable)
   NSS_REF: edma-nss
   TARGET: qualcommax/ipq807x                          # bin/targets/<target>/
-  DEVICE: xiaomi_ax3600                               # selects devices/<id>/
   VARIANT: edma-nss                                   # selects devices/<id>/files.<variant>
   RELEASE_PREFIX: edma-nss                            # tag = <prefix>-<ts>-<run id>
   KEEP: "2"                                           # newest releases to retain
   FEEDS: "src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss"
 ```
+
+Which devices get built is the `build` job's matrix, one entry per
+`devices/<id>/` directory:
+
+```yaml
+    strategy:
+      matrix:
+        device: [xiaomi_ax3600, ipq807x-1g, ipq807x-512m, ipq807x-256m]
+```
+
+A group exists per memory profile, because the ath11k and NSS profiles are
+compile-time and image-wide. Adding a device to a group is one
+`CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_<id>=y` line in that group's
+config — the group whose profile matches the board's RAM.
+
+Getting that right is on you. `kmod-ath11k` carries per-board profile selects,
+but they key off the single-profile choice symbol
+(`CONFIG_TARGET_qualcommax_ipq807x_DEVICE_<id>`), which a multi-device build
+never sets — they apply to a one-device build like `xiaomi_ax3600` and not to a
+group. In a group the profile is whatever the group config says, and a board in
+the wrong one gets an image built for the wrong amount of RAM.
+
+`CONFIG_TARGET_PER_DEVICE_ROOTFS=y` is what keeps each image to its own device
+packages; without it every image in a group carries every other board's.
 
 When the build runs depends on the trigger:
 - **schedule** → `check` skips the build when the upstream is unchanged since the last release
@@ -29,19 +52,30 @@ When the build runs depends on the trigger:
 
 ## Device `.config`
 
-The whole `.config` is [`devices/xiaomi_ax3600/config`](../devices/xiaomi_ax3600/config); `prepare-build.sh`
-copies it to `.config` and runs `make defconfig`. To change something, edit in a real OpenWrt checkout
-and diff back:
+The `.config` is assembled from two files: everything device-independent is in
+[`devices/common/config`](../devices/common/config), and `devices/<id>/config`
+adds the device list, the memory profiles and any board-specific package
+pruning. `prepare-build.sh` concatenates them (the device file wins on a symbol
+set in both) and runs `make defconfig`. To change something, edit in a real
+OpenWrt checkout and diff back:
 
 ```sh
 git clone --branch nss-edma-rework https://github.com/JuliusBairaktaris/openwrt-nss-edma openwrt
-cp devices/xiaomi_ax3600/config openwrt/.config
+cat devices/common/config devices/xiaomi_ax3600/config > openwrt/.config
 cd openwrt && make menuconfig
 ./scripts/diffconfig.sh > /tmp/full.config        # minimal .config (deltas only)
-# then copy /tmp/full.config back to devices/xiaomi_ax3600/config
+# then split the delta back over devices/common/config and devices/<id>/config
 ```
 
-Symbols that don't exist on the upstream are dropped silently by `make defconfig`.
+A symbol whose dependencies are unmet is dropped silently by `make defconfig`,
+which is how an image ships without an option someone asked for. Every
+requested `=y` symbol is therefore re-checked against the resolved `.config`,
+and a missing one fails the build.
+
+Anything a board does not have belongs in its own config, never in the shared
+one: `DEVICE_PACKAGES` pulls in each board's ath10k firmware, USB and 10G PHY
+support, and disabling those globally ships a broken image for every board that
+does have the hardware.
 
 ## Enabling offload extras
 
@@ -49,7 +83,7 @@ The image ships the full default offload stack (NAT/PPPoE/VLAN via ECM, wired
 bridge offload, same-subnet multicast, NSS SQM, Wi-Fi). A few more offloads are
 wired in the source tree but left **off by default** because the reference
 network does not use them. Each is enabled by adding its package to
-`devices/xiaomi_ax3600/config` and rebuilding:
+`devices/common/config` and rebuilding:
 
 | Feature | Add | How it offloads |
 |---|---|---|
@@ -80,10 +114,12 @@ package from the feed — only what you explicitly enable in `.config` ships.
 
 ## Rootfs overlay
 
-Two overlay layers, applied in order (later wins):
+Four overlay layers, applied in order (later wins), each optional:
 
-1. `devices/xiaomi_ax3600/files/` — base
-2. `devices/xiaomi_ax3600/files.edma-nss/` — variant-specific
+1. `devices/common/files/` — every image
+2. `devices/common/files.edma-nss/` — every image, variant-specific
+3. `devices/<id>/files/` — one device
+4. `devices/<id>/files.edma-nss/` — one device, variant-specific
 
 Anything under these is copied to the image root, preserving paths. Special handling:
 - `etc/ssh/sshd_config` is `chmod 0600`'d automatically

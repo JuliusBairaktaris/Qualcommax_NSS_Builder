@@ -1,8 +1,8 @@
 name: Build
 
-# Builds the single edma-nss image for the Xiaomi AX3600:
-#   check (upstream moved?) -> build -> prune
-# All build parameters live in the `env:` block below — it is the one file you edit.
+# Builds the edma-nss images for every ipq807x device, in four groups:
+#   check (upstream moved?) -> draft release -> build each group -> publish -> prune
+# All build parameters live in the `env:` block below and in devices/<group>/config.
 on:
   workflow_dispatch:
   push:
@@ -27,7 +27,6 @@ env:
   NSS_REPO: JuliusBairaktaris/nss-packages
   NSS_REF: edma-nss
   TARGET: qualcommax/ipq807x
-  DEVICE: xiaomi_ax3600
   VARIANT: edma-nss
   RELEASE_PREFIX: edma-nss
   KEEP: "2"                     # newest releases to retain
@@ -51,16 +50,75 @@ jobs:
       - id: check
         run: bash scripts/check-updates.sh
 
-  build:
-    name: Build edma-nss (xiaomi_ax3600)
+  release:
+    name: Create draft release
     needs: check
     if: needs.check.outputs.need == 'true'
     runs-on: ubuntu-26.04
-    timeout-minutes: 360
+    timeout-minutes: 5
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
+      UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
+      NSS_SHA: ${{ needs.check.outputs.nss_sha }}
+    outputs:
+      tag: ${{ steps.draft.outputs.tag }}
+    steps:
+      - id: draft
+        run: |
+          set -euo pipefail
+          date=$(date -u +%F)
+          tag="${RELEASE_PREFIX}-$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
+
+          # The build jobs upload into this release; it is published only once
+          # every group has succeeded, so a partial image set never goes out.
+          {
+            echo "## OpenWrt Build — ${VARIANT}"
+            echo "- **Date**: $date"
+            echo "- **Variant**: \`${VARIANT}\`"
+            echo "- **Target**: \`${TARGET}\` (every ipq807x device)"
+            echo "- **Upstream**: \`${UPSTREAM_REPO}@${UPSTREAM_SHA}\`"
+            if [[ -n "${NSS_SHA}" ]]; then
+              echo "- **NSS**: \`${NSS_SHA}\`"
+            fi
+            echo "- **Trigger**: \`${GITHUB_EVENT_NAME}\`"
+            echo
+            echo "Pick the \`...-<your device>-squashfs-sysupgrade.bin\` asset and flash"
+            echo "it over an existing OpenWrt install. These are sysupgrade images only -"
+            echo "there is no factory image; install stock OpenWrt first if you are not"
+            echo "already running it."
+            echo
+            echo "The offload comes up at boot; \`nss-status\` reports its health."
+            echo "To stay on the plain host stack instead:"
+            echo "\`uci set nss.general.enabled='0'; uci commit nss; reboot\`."
+          } >release_notes.md
+
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --title "OpenWrt ${VARIANT} $date" \
+            --notes-file release_notes.md
+
+  build:
+    name: Build ${{ matrix.device }}
+    needs: [check, release]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 360
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        # One entry per devices/<name>/ directory. The ipq807x-* groups exist
+        # because the ath11k memory profile is compile-time and image-wide, so
+        # boards can only share a build when they share a profile.
+        device: [xiaomi_ax3600, ipq807x-1g, ipq807x-512m, ipq807x-256m]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DEVICE: ${{ matrix.device }}
+      TAG: ${{ needs.release.outputs.tag }}
     steps:
       - name: Install build dependencies
         run: |
@@ -123,47 +181,66 @@ jobs:
             make -j1 V=s
           fi
 
-      - name: Publish release
-        id: release
-        env:
-          UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
-          NSS_SHA: ${{ needs.check.outputs.nss_sha }}
+      - name: Upload images
         run: |
           set -euo pipefail
-          date=$(date -u +%F)
-          timestamp=$(date -u +%Y%m%dT%H%M%SZ)
-          tag_name="${RELEASE_PREFIX}-${timestamp}-${GITHUB_RUN_ID}"
-          echo "release_tag=$tag_name" >>"$GITHUB_OUTPUT"
+          out="openwrt/bin/targets/${TARGET}"
+
+          # Sysupgrade images only - no factory/initramfs, per the project's
+          # sysupgrade-from-existing-OpenWrt model. Image names carry the
+          # device, so the four groups never collide in the release. The build
+          # metadata does, so it is uploaded under the group name instead of
+          # dropped - it is the answer to "what exactly was in this image".
+          mapfile -t assets < <(find "$out" -maxdepth 1 -type f -name 'openwrt-*-squashfs-sysupgrade.bin')
+          [[ ${#assets[@]} -gt 0 ]] || { echo "::error::no sysupgrade images in $out"; exit 1; }
+          grep 'sysupgrade.bin' "$out/sha256sums" >"sha256sums-${DEVICE}.txt"
+          cp "$out/config.buildinfo" "config-${DEVICE}.buildinfo"
+
+          # --clobber, so re-running a job that died mid-upload is a recovery
+          # and not a permanent "asset already exists".
+          for attempt in 1 2 3; do
+            gh release upload "$TAG" \
+              --repo "$GITHUB_REPOSITORY" --clobber \
+              "${assets[@]}" "sha256sums-${DEVICE}.txt" "config-${DEVICE}.buildinfo" && break
+            [[ $attempt -lt 3 ]] || { echo "::error::upload failed after $attempt attempts"; exit 1; }
+            echo "::warning::upload attempt $attempt failed; retrying"
+            sleep 15
+          done
 
           {
-            echo "## OpenWrt Build — ${VARIANT}"
-            echo "- **Date**: $date"
-            echo "- **Variant**: \`${VARIANT}\`"
-            echo "- **Device**: \`${DEVICE}\`"
-            echo "- **Target**: \`${TARGET}\`"
-            echo "- **Upstream**: \`${UPSTREAM_REPO}@${UPSTREAM_SHA}\`"
-            if [[ -n "${NSS_SHA}" ]]; then
-              echo "- **NSS**: \`${NSS_SHA}\`"
-            fi
-            echo "- **Trigger**: \`${GITHUB_EVENT_NAME}\`"
-          } >release_notes.md
-
-          mapfile -t assets < <(find "openwrt/bin/targets/${TARGET}/" -type f -not -path "*/packages/*")
-          gh release create "$tag_name" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "OpenWrt ${VARIANT} $date" \
-            --notes-file release_notes.md \
-            "${assets[@]}"
-
-          {
-            echo "## Release"
-            echo "- tag: \`${tag_name}\`"
+            echo "## ${DEVICE}"
             echo "- assets: ${#assets[@]}"
           } >>"$GITHUB_STEP_SUMMARY"
 
+  publish:
+    name: Publish release
+    needs: [release, build]
+    if: always() && needs.release.result == 'success'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.release.outputs.tag }}
+      BUILD_RESULT: ${{ needs.build.result }}
+    steps:
+      - name: Publish or discard
+        run: |
+          set -euo pipefail
+          if [[ "$BUILD_RESULT" != "success" ]]; then
+            # A half-built release would silently be missing devices, and a
+            # draft left behind is never pruned. Drop it and fail. No
+            # --cleanup-tag: a draft's tag exists only inside the release.
+            gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes
+            echo "::error::a build group failed ($BUILD_RESULT); draft release discarded"
+            exit 1
+          fi
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+
   prune:
     name: Prune old releases
-    needs: build
+    needs: publish
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:

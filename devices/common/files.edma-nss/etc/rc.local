@@ -1,7 +1,6 @@
 # Put your custom commands here that should be executed once
 # the system init finished. By default this file does nothing.
 
-# (supersedes the shared rc.local: keep its ssh moduli hardening)
 # Only rewrite when a weak group is actually present: this runs on every boot,
 # and the filtered file is already the input on every boot after the first.
 if awk '$5 < 3071 { found = 1 } END { exit !found }' /etc/ssh/moduli; then

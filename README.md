@@ -1,15 +1,15 @@
 # Qualcommax NSS Builder
 
-### OpenWrt image builder for the Xiaomi AX3600 — NSS hardware offload on the upstream EDMA drivers
+### OpenWrt image builder for IPQ807x — NSS hardware offload on the upstream EDMA drivers
 
 [![Build](https://img.shields.io/github/actions/workflow/status/JuliusBairaktaris/Qualcommax_NSS_Builder/build.yml?branch=main&style=flat-square&logo=github&label=Build)](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/actions/workflows/build.yml)
 [![Lint](https://img.shields.io/github/actions/workflow/status/JuliusBairaktaris/Qualcommax_NSS_Builder/lint.yml?branch=main&style=flat-square&logo=github&label=Lint)](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/actions/workflows/lint.yml)
 [![License](https://img.shields.io/github/license/JuliusBairaktaris/Qualcommax_NSS_Builder?style=flat-square&label=License)](LICENSE)
 [![Last Commit](https://img.shields.io/github/last-commit/JuliusBairaktaris/Qualcommax_NSS_Builder?style=flat-square&label=Last%20Commit)](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/commits/main)
 
-A GitHub Actions pipeline that builds one OpenWrt image for the **Xiaomi
-AX3600**: Qualcomm NSS hardware offload running on OpenWrt main's **upstream
-`qca_edma` / `qca_ppe` ethernet drivers**
+A GitHub Actions pipeline that builds an OpenWrt image for **every IPQ807x
+device in the target** — all 39 of them: Qualcomm NSS hardware offload running
+on OpenWrt main's **upstream `qca_edma` / `qca_ppe` ethernet drivers**
 ([PR #22381](https://github.com/openwrt/openwrt/pull/22381)) — not the vendor
 `qca-nss-dp` / `qca-ssdk` stack every other NSS build uses. Built from
 [openwrt-nss-edma](https://github.com/JuliusBairaktaris/openwrt-nss-edma) and
@@ -25,7 +25,9 @@ results are in the
 
 ## Use it
 
-Grab the `*-sysupgrade.bin` from the newest `edma-nss-*`
+Every release carries one sysupgrade image per device, named after its OpenWrt
+profile id. Grab `...-<your device>-squashfs-sysupgrade.bin` from the newest
+`edma-nss-*`
 [release](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/releases)
 and flash it:
 
@@ -34,8 +36,32 @@ sysupgrade -n /tmp/openwrt-qualcommax-ipq807x-xiaomi_ax3600-squashfs-sysupgrade.
 ```
 
 Or via LuCI: **System → Backup / Flash Firmware**, upload, uncheck "Keep
-settings" for a first-time flash. Coming from stock Xiaomi firmware? Install
-OpenWrt first via the [official guide](https://openwrt.org/toh/xiaomi/ax3600).
+settings" for a first-time flash.
+
+These are **sysupgrade images only** — there is no factory image. You must
+already be running OpenWrt on the device; if you are on stock vendor firmware,
+install stock OpenWrt first (your device's
+[OpenWrt device page](https://openwrt.org/toh/start) covers that), then flash
+this over it.
+
+<details>
+<summary><b>Devices built</b> — all 39 in <code>qualcommax/ipq807x</code></summary>
+
+The split is the ath11k memory profile, which is compile-time and image-wide,
+so each group of boards that shares a profile shares a build.
+
+| Group | RAM | Devices |
+|---|---|---|
+| `xiaomi_ax3600` | 512 MB | Xiaomi AX3600 (own build: adds the board's wireless defaults and SQM template) |
+| `ipq807x-1g` | 1 GB+ | Aliyun AP8220, Arcadyan AW1000, Asus RT-AX89X, Buffalo WXR-5950AX12, Dynalink DL-WRX36, Edgecore EAP102, Linksys HomeWRK, Linksys MX4200 v2, Linksys MX4300, Linksys MX5300, Linksys MX8500, Netgear RAX120v2, Netgear RBR750, Netgear RBS750, Netgear SXR80, Netgear SXS80, Netgear WAX620, Netgear WAX630, prpl Haze, QNAP 301w, Spectrum SAX1V1K, TCL LINKHUB HH500V, TP-Link Deco X80-5G, TP-Link EAP620 HD v1, TP-Link EAP660 HD v1, Xiaomi AX9000, Yuncore AX880, Zbtlink ZBT-Z800AX, Zyxel NBG7815, Zyxel NWA110AX, Zyxel NWA210AX |
+| `ipq807x-512m` | 512 MB | CMCC RM2-6, Compex WPQ873, Edimax CAX1800, Linksys MX4200 v1, Redmi AX6, ZTE MF269 |
+| `ipq807x-256m` | 256 MB | Netgear WAX218 |
+
+The AX3600 is the board every change is validated on; the rest carry the same
+data path and the same NSS device-tree nodes, and are built so a bug report
+starts from a known image instead of a hand-rolled config.
+
+</details>
 
 **Runtime model:** the `nss` service (`/etc/init.d/nss`) makes the data-path
 decision once, early in boot: it arms the NSS data plane, boots the firmware,
@@ -51,11 +77,12 @@ sysupgrade) — with it set, every boot is a stock host-only system.
 Check plane health any time with `nss-status` over ssh, or in LuCI under
 **Status → NSS Offload**.
 
-Wi-Fi ships **configured but disabled**, like any OpenWrt image with no factory
-credentials: the radio paths, band, channel and 802.11k/v options are already
-set, so there is no first-boot detection race, but no image can carry a working
-password without publishing it here. Connect a cable, set an SSID and key in
-LuCI → Network → Wireless, and enable the radios.
+Wi-Fi ships **disabled**, like any OpenWrt image with no factory credentials —
+no image can carry a working password without publishing it here. Connect a
+cable, set an SSID and key in LuCI → Network → Wireless, and enable the radios.
+On the AX3600 the radio paths, band, channel and 802.11k/v options come
+preconfigured, so there is no first-boot detection race; the other images use
+OpenWrt's own first-boot radio detection.
 
 ---
 
@@ -74,19 +101,20 @@ included desktop-router config:
 | **QoS marking** | `nssqos` + `luci-app-nssqos` — DSCP marking & fast-lane prioritization rules (CLI `/etc/config/nssqos`, LuCI **Network → QoS Marking (NSS)**), effective on accelerated flows; the applied class shows per flow in the **DSCP** column of **Status → Realtime → Connections** |
 | **Wi-Fi** | ath11k NSS offload (wifili) on both radios (`CONFIG_ATH11K_NSS_SUPPORT`); radio paths, band, channel and 802.11k/v preconfigured, interfaces ship disabled with no key — set SSID/key over the LAN port and enable them |
 | **Diagnostics** | `nss-status` CLI health report (now incl. fast-lane counters) + LuCI **Status → NSS Offload** page + per-station firmware Wi-Fi counters (`/sys/kernel/debug/ieee80211/phy*/netdev:*/stations/<mac>/nss_stats`: A-MSDU aggregation, MPDU retries) |
-| **Firmware/profile** | `NSS.FW.12.5-210-HK.R`, MEDIUM memory profile (512 MB) |
+| **Firmware/profile** | `NSS.FW.12.5-210-HK.R`; NSS memory profile matched to the board's RAM (HIGH / MEDIUM / LOW) |
 | **Security** | OpenSSH only (post-quantum KEX, AEAD/ETM, RSA ≥ 3072), `PKG_*` hardening (ASLR/PIE, stack protector, FORTIFY_3, RELRO, seccomp), WAN DROP + BCP38, HTTPS redirect, OQS provider in OpenSSL |
 | **Toolchain** | GCC 15 + Graphite, Binutils 2.46, Mold linker, LTO, `-mcpu=cortex-a53+crc+crypto`; ccache off |
 | **Userland** | LuCI (SSL), `htop`, `iperf3`, `curl`, BBR |
 
 Toolchain and package pins live in
-[`devices/xiaomi_ax3600/config`](devices/xiaomi_ax3600/config).
+[`devices/common/config`](devices/common/config), shared by every image;
+`devices/<group>/config` adds only the device list and the memory profiles.
 
 ## Enable the rest in your fork
 
 These are build-verified and wired in code, but **off by default** because the
 reference network does not use them. Add the package to
-`devices/xiaomi_ax3600/config` and rebuild:
+`devices/common/config` and rebuild:
 
 | Feature | Add to config | Notes |
 |---|---|---|
@@ -131,7 +159,8 @@ cd openwrt
 cp feeds.conf.default feeds.conf
 echo "src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss" >> feeds.conf
 ./scripts/feeds update -a && ./scripts/feeds install -a
-cp ../Qualcommax_NSS_Builder/devices/xiaomi_ax3600/config .config
+B=../Qualcommax_NSS_Builder/devices
+cat "$B/common/config" "$B/xiaomi_ax3600/config" > .config   # or any devices/<group>
 make defconfig && make -j"$(nproc)"
 ```
 
@@ -155,16 +184,14 @@ make defconfig && make -j"$(nproc)"
 > in the tree and in `feeds/nss` must match the tips of
 > [`nss-edma-rework`](https://github.com/JuliusBairaktaris/openwrt-nss-edma/commits/nss-edma-rework)
 > and [`edma-nss`](https://github.com/JuliusBairaktaris/nss-packages/commits/edma-nss).
-> For other IPQ807x devices, start from `devices/xiaomi_ax3600/config` and only
-> change the target device — it carries the NSS options (firmware version,
-> memory profile) that a from-scratch config gets wrong.
 
 The NSS runtime tools (`nss-up`, `nss-status`, the `nss` boot service, the
 QoS marking CLI/UI) ship as regular packages from the openwrt fork
 (`nss-tools`, `nssqos`, `luci-app-nss`, `luci-app-nssqos`) — plain fork
 checkouts get them by selecting the packages, no builder needed. The few
-remaining overlay files (the disabled SQM template, wireless defaults, SSH config)
-are under `devices/xiaomi_ax3600/files*/` — copy them into the image with a
+remaining overlay files (SSH config and QoL defaults in `devices/common/files*/`,
+the AX3600's wireless defaults and SQM template in `devices/xiaomi_ax3600/files*/`)
+are copied into the image with a
 `files/` directory or the builder pipeline. See [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md)
 for the full customization guide and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 for how the pipeline works.
@@ -172,18 +199,27 @@ for how the pipeline works.
 ### Repo layout
 
 ```
-devices/xiaomi_ax3600/
-  config                 # the .config (target, toolchain, hardening, NSS packages)
+devices/common/          # shared by every image
+  config                 # the .config bulk (toolchain, hardening, NSS packages)
   files/                 # base rootfs overlay (sshd_config, QoL uci-defaults)
-  files.edma-nss/        # edma-nss overlay (SQM template, rc.local)
+  files.edma-nss/        # edma-nss overlay (rc.local)
+devices/xiaomi_ax3600/   # one directory per build: config + optional overlays
+devices/ipq807x-{1g,512m,256m}/
 scripts/                 # check-updates, prepare-build, prune-releases (tested, linted)
 docs/                    # CUSTOMIZE.md, ARCHITECTURE.md
-.github/workflows/       # build.yml (check → build → prune), lint.yml
+.github/workflows/       # build.yml (check → release → build → publish → prune), lint.yml
 ```
 
-The pipeline runs `check → build → prune`: `check` resolves the upstream/NSS
-ref to a SHA and skips a scheduled build when nothing changed; `build` applies
-the config + overlays, compiles, and publishes a release; `prune` keeps the
+Each `devices/<name>/config` is concatenated onto `devices/common/config` and
+resolved with `make defconfig`, which is verified to have kept every requested
+symbol — a silently reduced image fails the build instead of shipping.
+
+The pipeline runs `check → release → build → publish → prune`: `check` resolves
+the upstream/NSS ref to a SHA and skips a scheduled build when nothing changed;
+`release` opens a draft release; `build` runs once per device group in
+parallel, applying the config + overlays, compiling, and uploading its images
+into that draft; `publish` makes it public once every group succeeded, and
+discards it otherwise, so a release is never missing devices; `prune` keeps the
 newest `KEEP` releases. Builds are uncached (fresh runner, reproducible
 `SOURCE_DATE_EPOCH`) and the pipeline is linted (`actionlint`, `shellcheck`,
 `yamllint`) on every PR.

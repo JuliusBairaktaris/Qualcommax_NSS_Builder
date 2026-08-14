@@ -1,0 +1,20 @@
+#
+# The one 256 MB ipq807x board. It gets its own build because the memory
+# profiles are compile-time and image-wide; see devices/ipq807x-1g/config.
+#
+# 256 MB is the tightest board the NSS plane runs on: the firmware carve-out
+# (nss_region, 16 MB) plus the NSS buffer pools come out of the same RAM the
+# rest of the system needs, which is why this build takes the LOW profile.
+# Concatenated onto devices/common/config by prepare-build.sh.
+#
+# It is a multi-device build with one device in it, like the other groups, so
+# that a second 256 MB board is one line and not a conversion.
+#
+
+CONFIG_TARGET_MULTI_PROFILE=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+
+CONFIG_ATH11K_MEM_PROFILE_256M=y
+CONFIG_NSS_MEM_PROFILE_LOW=y
+
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_netgear_wax218=y
