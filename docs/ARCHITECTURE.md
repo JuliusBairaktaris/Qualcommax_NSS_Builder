@@ -12,10 +12,10 @@ flowchart LR
 | Job | File | Runtime | Purpose |
 |---|---|---|---|
 | `check` | `build.yml` → `scripts/check-updates.sh` | ~15s | Resolves the upstream (and NSS) ref to a commit SHA via `git ls-remote`. On a **scheduled** tick it skips the build when the latest release already records the SHA(s); on **push** (config changed) and **manual** runs it always builds. Emits `upstream_sha`, `nss_sha`, `need`. |
-| `release` | `build.yml` | ~5s | Opens the draft release the build jobs upload into, and emits its tag. |
-| `build` | `build.yml` → `scripts/prepare-build.sh` | 2-6h | One matrix job per `devices/<name>/`. Checks out the upstream at the pinned SHA, runs `prepare-build.sh` (feeds, `.config`, overlays), sets reproducible-build env, compiles, uploads its images into the draft. |
-| `publish` | `build.yml` | ~5s | Publishes the draft once every group succeeded; deletes it (tag included) and fails otherwise. |
-| `prune` | `build.yml` → `scripts/prune-releases.sh` | ~10s | Keeps the newest `KEEP` releases. Tested in `scripts/tests/prune-releases.test.sh`. |
+| `release` | `build.yml` | ~5s | Opens one draft release per flavour (default, mesh) for the build jobs to upload into, and emits their tags. |
+| `build` | `build.yml` → `scripts/prepare-build.sh` | 2-6h | One matrix job per `devices/<name>/` × flavour. Checks out the upstream at the pinned SHA, runs `prepare-build.sh` (feeds, `.config`, overlays), sets reproducible-build env, compiles, uploads its images into the draft. |
+| `publish` | `build.yml` | ~5s | Publishes both drafts once every group of both flavours succeeded; deletes them (tags included) and fails otherwise. Only the default flavour is marked latest. |
+| `prune` | `build.yml` → `scripts/prune-releases.sh` | ~10s | Keeps the newest `KEEP` releases of each prefix. Tested in `scripts/tests/prune-releases.test.sh`. |
 
 ## Why one release for all groups?
 
@@ -26,6 +26,12 @@ user should have to know about: one release holds every device's images, and
 `publish` is what keeps it all-or-nothing. A partial set would read as "this
 device is not supported" when it only means one group's compile broke, and a
 draft left behind is never pruned.
+
+The mesh flavour is a second release rather than more assets in that one, on
+the same reasoning read the other way: it is the same device set built against
+a different NSS firmware line, so its images share the group names and would
+collide. Which firmware a device wants is a choice the user makes, unlike its
+memory profile, so it is the one split that belongs in front of them.
 
 ## Why split into jobs?
 

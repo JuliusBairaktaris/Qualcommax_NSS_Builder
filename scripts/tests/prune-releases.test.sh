@@ -13,9 +13,9 @@ script="$here/../prune-releases.sh"
 fail=0
 
 run_case() {
-  local name="$1" json="$2" keep="$3" current="$4" want="$5"
+  local name="$1" json="$2" keep="$3" current="$4" want="$5" prefix="${6:-}"
   local got
-  got="$(REPO=owner/name KEEP="$keep" CURRENT_TAG="$current" \
+  got="$(REPO=owner/name KEEP="$keep" CURRENT_TAG="$current" PREFIX="$prefix" \
     DRY_RUN=1 RELEASES_JSON_STDIN=1 \
     bash "$script" <<<"$json" 2>/dev/null \
     | awk '/^  - /{print $2}' \
@@ -70,6 +70,26 @@ run_case "keep=1 of 5 deletes 4 oldest" "$five" 1 "" "r4
 r3
 r2
 r1"
+
+# Case 7: two flavours interleaved. PREFIX must keep each series' own newest
+# $KEEP, and `edma-nss` must not swallow `edma-nss-mesh`.
+flavours='[
+  {"tagName":"edma-nss-20260815T100000Z-3","publishedAt":"2026-08-15T10:00:00Z"},
+  {"tagName":"edma-nss-mesh-20260815T100000Z-3","publishedAt":"2026-08-15T10:00:01Z"},
+  {"tagName":"edma-nss-20260814T100000Z-2","publishedAt":"2026-08-14T10:00:00Z"},
+  {"tagName":"edma-nss-mesh-20260814T100000Z-2","publishedAt":"2026-08-14T10:00:01Z"},
+  {"tagName":"edma-nss-20260813T100000Z-1","publishedAt":"2026-08-13T10:00:00Z"},
+  {"tagName":"edma-nss-mesh-20260813T100000Z-1","publishedAt":"2026-08-13T10:00:01Z"}
+]'
+run_case "prefix keeps 2 of its own series" "$flavours" 2 "" \
+  "edma-nss-20260813T100000Z-1" "edma-nss"
+run_case "mesh prefix prunes only mesh" "$flavours" 2 "" \
+  "edma-nss-mesh-20260813T100000Z-1" "edma-nss-mesh"
+run_case "no prefix still sees every release" "$flavours" 2 "" \
+  "edma-nss-20260814T100000Z-2
+edma-nss-mesh-20260814T100000Z-2
+edma-nss-20260813T100000Z-1
+edma-nss-mesh-20260813T100000Z-1"
 
 if [[ "$fail" -ne 0 ]]; then
   echo "Some tests failed." >&2

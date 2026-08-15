@@ -38,6 +38,12 @@ sysupgrade -n /tmp/openwrt-qualcommax-ipq807x-xiaomi_ax3600-squashfs-sysupgrade.
 Or via LuCI: **System → Backup / Flash Firmware**, upload, uncheck "Keep
 settings" for a first-time flash.
 
+Each build also publishes an `edma-nss-mesh-*` release with the same images
+built for **802.11s mesh offload**. Mesh interfaces are only accepted by NSS
+firmware 11.4.0.5, the last line that supports them, so that release carries
+11.4 in place of the 12.5 firmware the default images ship. Take it if you run
+802.11s; take `edma-nss-*` otherwise.
+
 These are **sysupgrade images only** — there is no factory image. You must
 already be running OpenWrt on the device; if you are on stock vendor firmware,
 install stock OpenWrt first (your device's

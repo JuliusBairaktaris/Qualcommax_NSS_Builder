@@ -59,8 +59,10 @@ else
   # scheduled tick -> only rebuild when the upstream moved since the last release.
   body=""
   if [[ -n "$REPO" ]]; then
+    # Anchored on the tag's timestamp field, so the prefix of one flavour does
+    # not also match another's (edma-nss vs edma-nss-mesh).
     body="$(gh api "repos/$REPO/releases" --jq \
-      "[.[] | select(.draft|not) | select(.tag_name | startswith(\"${RELEASE_PREFIX}-\"))] | sort_by(.created_at) | reverse | .[0].body // \"\"" \
+      "[.[] | select(.draft|not) | select(.tag_name | test(\"^${RELEASE_PREFIX}-[0-9]{8}T[0-9]{6}Z-\"))] | sort_by(.created_at) | reverse | .[0].body // \"\"" \
       2>/dev/null || printf '%s' "")"
   fi
   if [[ "$body" == *"$up_sha"* ]] && { [[ -z "$nss_sha" ]] || [[ "$body" == *"$nss_sha"* ]]; }; then

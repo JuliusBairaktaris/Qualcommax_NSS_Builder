@@ -15,7 +15,8 @@ env:
   TARGET: qualcommax/ipq807x                          # bin/targets/<target>/
   VARIANT: edma-nss                                   # selects devices/<id>/files.<variant>
   RELEASE_PREFIX: edma-nss                            # tag = <prefix>-<ts>-<run id>
-  KEEP: "2"                                           # newest releases to retain
+  MESH_RELEASE_PREFIX: edma-nss-mesh                  # same, for the mesh flavour
+  KEEP: "2"                                           # newest releases to retain, per prefix
   FEEDS: "src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss"
 ```
 
@@ -26,7 +27,21 @@ Which devices get built is the `build` job's matrix, one entry per
     strategy:
       matrix:
         device: [xiaomi_ax3600, ipq807x-1g, ipq807x-512m, ipq807x-256m]
+        flavour: [default, mesh]
+        include:
+          - flavour: mesh
+            config_fragment: devices/common/config.mesh
 ```
+
+The second axis is the **flavour**: every group is built twice, once plain and
+once for 802.11s mesh offload, and each flavour gets its own release
+(`RELEASE_PREFIX` / `MESH_RELEASE_PREFIX`). A flavour is nothing but a `.config`
+fragment appended after the common and device configs — `CONFIG_FRAGMENT`,
+which `prepare-build.sh` reads — so it wins on any symbol they also set. Mesh
+needs it because both the mesh option and its required NSS firmware line
+(11.4.0.5, the last one that accepts a mesh interface) are image-wide, exactly
+like the memory profile that splits the device groups. The overlay files are
+unaffected: both flavours use `files.$VARIANT`.
 
 A group exists per memory profile, because the ath11k and NSS profiles are
 compile-time and image-wide. Adding a device to a group is one

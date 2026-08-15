@@ -14,6 +14,7 @@
 #
 # Optional env:
 #   FEEDS         newline-separated `src-git <name> <url>` lines to append to feeds.conf
+#   CONFIG_FRAGMENT  repo-relative .config fragment appended last (flavour, e.g. mesh)
 
 set -euo pipefail
 
@@ -26,11 +27,20 @@ source "$(dirname -- "$0")/lib/log.sh"
 : "${DEVICE:?DEVICE required}"
 
 FEEDS="${FEEDS:-}"
+CONFIG_FRAGMENT="${CONFIG_FRAGMENT:-}"
 COMMON_DIR="$BUILDER_REPO/devices/common"
 DEVICE_DIR="$BUILDER_REPO/devices/$DEVICE"
 
 [[ -f "$DEVICE_DIR/config" ]] || log::die "$DEVICE_DIR/config not found"
 [[ -f "$COMMON_DIR/config" ]] || log::die "$COMMON_DIR/config not found"
+
+# Least to most specific; the last file wins on a symbol set in several.
+CONFIGS=("$COMMON_DIR/config" "$DEVICE_DIR/config")
+if [[ -n "$CONFIG_FRAGMENT" ]]; then
+  [[ -f "$BUILDER_REPO/$CONFIG_FRAGMENT" ]] ||
+    log::die "CONFIG_FRAGMENT $CONFIG_FRAGMENT not found in $BUILDER_REPO"
+  CONFIGS+=("$BUILDER_REPO/$CONFIG_FRAGMENT")
+fi
 
 cd "$OPENWRT_DIR"
 
@@ -75,10 +85,9 @@ for p in "$BUILDER_REPO"/patches/feeds/*/*.patch; do
 done
 shopt -u nullglob
 
-# 2. Assemble .config from the common + device configs, then resolve. The
-#    device config comes last so it wins on any symbol set in both.
-log::info "Assembling .config from devices/common/config + devices/$DEVICE/config"
-cat "$COMMON_DIR/config" "$DEVICE_DIR/config" >.config
+# 2. Assemble .config from the common + device configs, then resolve.
+log::info "Assembling .config from ${CONFIGS[*]#"$BUILDER_REPO"/}"
+cat "${CONFIGS[@]}" >.config
 make defconfig
 
 # 2b. Verify defconfig honoured the device config. Kconfig silently drops a
@@ -91,7 +100,7 @@ log::info "Verifying defconfig kept the requested symbols"
 dropped=()
 while IFS= read -r req; do
   grep -qxF "$req" .config || dropped+=("$req")
-done < <(cat "$COMMON_DIR/config" "$DEVICE_DIR/config" |
+done < <(cat "${CONFIGS[@]}" |
   grep -E '^CONFIG_[A-Za-z0-9_-]+=' |
   awk -F= '{ last[$1] = $0 } END { for (s in last) print last[s] }' |
   grep -vE '=n$')

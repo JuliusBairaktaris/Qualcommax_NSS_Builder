@@ -1,0 +1,14 @@
+#
+# Mesh flavour: 802.11s forwarding offloaded to the NSS cores.
+#
+# Appended after devices/common/config + devices/<device>/config by
+# prepare-build.sh (CONFIG_FRAGMENT), so it wins on the symbols below.
+#
+# Mesh is a firmware capability: 11.4.0.5 is the last NSS firmware line that
+# accepts a mesh interface, and ATH11K_NSS_MESH_SUPPORT hard-depends on it.
+# Swapping the firmware choice is therefore part of the flavour, not a
+# separate knob.
+#
+CONFIG_NSS_FIRMWARE_VERSION_12_5=n
+CONFIG_NSS_FIRMWARE_VERSION_11_4=y
+CONFIG_ATH11K_NSS_MESH_SUPPORT=y
