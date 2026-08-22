@@ -14,7 +14,7 @@ delete sqm.@queue[0]
 set sqm.hwppe=queue
 set sqm.hwppe.enabled='1'
 set sqm.hwppe.interface='wan'
-set sqm.hwppe.download='335000'
+set sqm.hwppe.download='318000'
 set sqm.hwppe.upload='165000'
 set sqm.hwppe.qdisc='fq_codel'
 set sqm.hwppe.script='hw_ppe.qos'
