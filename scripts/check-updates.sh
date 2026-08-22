@@ -51,34 +51,46 @@ resolve_sha() {
 up_sha="$(resolve_sha "$UPSTREAM_REPO" "$UPSTREAM_REF")"
 nss_sha=""
 [[ -n "$NSS_REPO" ]] && nss_sha="$(resolve_sha "$NSS_REPO" "$NSS_REF")"
+ppe_sha=""
+[[ -n "${PPE_REF:-}" ]] && ppe_sha="$(resolve_sha "$UPSTREAM_REPO" "$PPE_REF")"
+
+# Latest published release body for a prefix; empty when there is none.
+latest_body() {
+  local prefix="$1"
+  [[ -n "$REPO" ]] || return 0
+  # Anchored on the tag's timestamp field, so the prefix of one flavour does
+  # not also match another's (edma-nss vs edma-nss-mesh).
+  gh api "repos/$REPO/releases" --jq \
+    "[.[] | select(.draft|not) | select(.tag_name | test(\"^${prefix}-[0-9]{8}T[0-9]{6}Z-\"))] | sort_by(.created_at) | reverse | .[0].body // \"\"" \
+    2>/dev/null || printf '%s' ""
+}
 
 if [[ "$EVENT_NAME" != "schedule" ]]; then
   # push (builder config changed) or manual dispatch (explicit) -> always rebuild.
   need=true
 else
-  # scheduled tick -> only rebuild when the upstream moved since the last release.
-  body=""
-  if [[ -n "$REPO" ]]; then
-    # Anchored on the tag's timestamp field, so the prefix of one flavour does
-    # not also match another's (edma-nss vs edma-nss-mesh).
-    body="$(gh api "repos/$REPO/releases" --jq \
-      "[.[] | select(.draft|not) | select(.tag_name | test(\"^${RELEASE_PREFIX}-[0-9]{8}T[0-9]{6}Z-\"))] | sort_by(.created_at) | reverse | .[0].body // \"\"" \
-      2>/dev/null || printf '%s' "")"
-  fi
+  # scheduled tick -> only rebuild when a source moved since the last release
+  # of the flavour built from it.
+  body="$(latest_body "$RELEASE_PREFIX")"
   if [[ "$body" == *"$up_sha"* ]] && { [[ -z "$nss_sha" ]] || [[ "$body" == *"$nss_sha"* ]]; }; then
     need=false
   else
     need=true
   fi
+  if [[ "$need" == false && -n "$ppe_sha" ]]; then
+    body="$(latest_body "${PPE_RELEASE_PREFIX:?PPE_RELEASE_PREFIX required with PPE_REF}")"
+    [[ "$body" == *"$ppe_sha"* ]] || need=true
+  fi
 fi
 
-log::info "$UPSTREAM_REPO@$UPSTREAM_REF -> ${up_sha:0:12}${nss_sha:+  nss ${nss_sha:0:12}}  build=$need"
+log::info "$UPSTREAM_REPO@$UPSTREAM_REF -> ${up_sha:0:12}${nss_sha:+  nss ${nss_sha:0:12}}${ppe_sha:+  ppe ${ppe_sha:0:12}}  build=$need"
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
     echo "## Upstream check"
     echo "- \`$UPSTREAM_REPO\` -> \`${up_sha:0:12}\`"
     [[ -n "$nss_sha" ]] && echo "- nss -> \`${nss_sha:0:12}\`"
+    [[ -n "$ppe_sha" ]] && echo "- ppe -> \`${ppe_sha:0:12}\`"
     echo "- need: **$need**"
   } >>"$GITHUB_STEP_SUMMARY"
 fi
@@ -87,6 +99,7 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   {
     echo "upstream_sha=$up_sha"
     echo "nss_sha=$nss_sha"
+    echo "ppe_sha=$ppe_sha"
     echo "need=$need"
   } >>"$GITHUB_OUTPUT"
 fi
