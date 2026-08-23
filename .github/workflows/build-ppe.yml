@@ -1,0 +1,242 @@
+name: Build PPE
+
+# Test images for the PPE hardware flow offload: stock OpenWrt plus LuCI and the
+# levers that drive the offload, for every ipq807x and ipq60xx board.
+#   check (branch moved?) -> ensure the prerelease -> build each subtarget -> update
+# Unlike the NSS builds there is one permanent prerelease, updated in place, so
+# the link a tester was given keeps working.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'devices/common-ppe/**'
+      - 'devices/ppe-*/**'
+      - 'scripts/**'
+      - '.github/workflows/build-ppe.yml'
+  schedule:
+    - cron: "30 3 * * *"
+
+concurrency:
+  group: build-ppe
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  UPSTREAM_REPO: JuliusBairaktaris/openwrt-nss-edma
+  UPSTREAM_REF: ppe-offload
+  TAG: ppe-offload-test
+  # No overlay files for this flavour; VARIANT only picks files.<variant>.
+  VARIANT: ppe
+  COMMON: common-ppe
+
+jobs:
+  check:
+    name: Check ppe-offload
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      sha: ${{ steps.check.outputs.sha }}
+      need: ${{ steps.check.outputs.need }}
+    steps:
+      - id: check
+        run: |
+          set -euo pipefail
+          sha="$(git ls-remote "https://github.com/$UPSTREAM_REPO" "$UPSTREAM_REF" | awk 'NR==1{print $1}')"
+          [[ -n "$sha" ]] || { echo "::error::could not resolve $UPSTREAM_REPO@$UPSTREAM_REF"; exit 1; }
+
+          # Only a scheduled tick may skip: a push changed the builder config and
+          # a dispatch is an explicit request. The release body carries the SHA it
+          # was built from, and it is only written once a build has succeeded, so
+          # a failed run re-triggers on the next tick instead of stamping itself.
+          need=true
+          if [[ "$GITHUB_EVENT_NAME" == schedule ]] &&
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body 2>/dev/null |
+            grep -qF "$sha"; then
+            need=false
+          fi
+
+          echo "$UPSTREAM_REF -> ${sha:0:12}  build=$need"
+          {
+            echo "sha=$sha"
+            echo "need=$need"
+          } >>"$GITHUB_OUTPUT"
+
+  release:
+    name: Ensure prerelease
+    needs: check
+    if: needs.check.outputs.need == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # One job, so the two build jobs never race to create the same tag.
+      - run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --prerelease --latest=false \
+              --title "OpenWrt PPE offload test images" \
+              --notes "Build in progress."
+
+  build:
+    name: Build ${{ matrix.subtarget }}
+    needs: [check, release]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 360
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        subtarget: [ipq807x, ipq60xx]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SUBTARGET: ${{ matrix.subtarget }}
+      DEVICE: ppe-${{ matrix.subtarget }}
+      # patches/feeds/ holds only the NSS DSCP column for LuCI's connections page.
+      PATCH_FEEDS: "0"
+    steps:
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            bzip2 g++ gawk gcc git glibc-source libncurses-dev make rsync
+
+      - name: Checkout OpenWrt source
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          ref: ${{ needs.check.outputs.sha }}
+          fetch-depth: 0
+          path: openwrt
+
+      - name: Checkout builder repo
+        uses: actions/checkout@v7
+        with:
+          path: builder
+
+      - name: Prepare build environment
+        env:
+          OPENWRT_DIR: ${{ github.workspace }}/openwrt
+          BUILDER_REPO: ${{ github.workspace }}/builder
+        run: bash builder/scripts/prepare-build.sh
+
+      - name: Set reproducible-build env
+        working-directory: openwrt
+        run: |
+          set -euo pipefail
+          {
+            echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)"
+            echo "TZ=UTC"
+            echo "LC_ALL=C"
+            echo "KBUILD_BUILD_USER=builder"
+            echo "KBUILD_BUILD_HOST=github"
+          } >>"$GITHUB_ENV"
+
+      - name: Download sources
+        working-directory: openwrt
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            make download -j"$(nproc)" V=s && break
+            echo "Download attempt $attempt failed; retrying..."
+            sleep 5
+          done
+
+      - name: Build
+        working-directory: openwrt
+        run: |
+          set -euo pipefail
+          if ! make -j"$(nproc)"; then
+            echo "::warning::Parallel build failed; retrying single-threaded for diagnostics"
+            make -j1 V=s
+          fi
+
+      - name: Upload images
+        run: |
+          set -euo pipefail
+          out="openwrt/bin/targets/qualcommax/${SUBTARGET}"
+
+          mapfile -t assets < <(find "$out" -maxdepth 1 -type f -name 'openwrt-*-squashfs-sysupgrade.bin')
+          [[ ${#assets[@]} -gt 0 ]] || { echo "::error::no sysupgrade images in $out"; exit 1; }
+          grep 'sysupgrade.bin' "$out/sha256sums" >"sha256sums-${SUBTARGET}.txt"
+          cp "$out/config.buildinfo" "config-${SUBTARGET}.buildinfo"
+
+          for attempt in 1 2 3; do
+            gh release upload "$TAG" \
+              --repo "$GITHUB_REPOSITORY" --clobber \
+              "${assets[@]}" "sha256sums-${SUBTARGET}.txt" "config-${SUBTARGET}.buildinfo" && break
+            [[ $attempt -lt 3 ]] || { echo "::error::upload failed after $attempt attempts"; exit 1; }
+            echo "::warning::upload attempt $attempt failed; retrying"
+            sleep 15
+          done
+
+          # The release is permanent, so an image for a board that has since left
+          # the target would sit here forever under a body naming a newer commit.
+          # Asset names carry the subtarget, so each job clears only its own.
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq ".assets[].name | select(startswith(\"openwrt-qualcommax-${SUBTARGET}-\"))" |
+            sort >published.txt
+          printf '%s\n' "${assets[@]##*/}" | sort >built.txt
+          comm -23 published.txt built.txt | while read -r name; do
+            echo "dropping stale asset: $name"
+            gh release delete-asset "$TAG" "$name" --repo "$GITHUB_REPOSITORY" --yes
+          done
+
+          {
+            echo "## ${SUBTARGET}"
+            echo "- images: ${#assets[@]}"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+  update:
+    name: Update prerelease
+    needs: [check, release, build]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ needs.check.outputs.sha }}
+    steps:
+      # Reached only when both subtargets built, so the SHA recorded here always
+      # describes a complete image set - which is what the check job reads back.
+      - run: |
+          set -euo pipefail
+          {
+            echo "## PPE hardware flow offload — test images"
+            echo
+            echo "Stock OpenWrt plus LuCI, carrying the in-kernel \`qca_edma\`/\`qca_ppe\`"
+            echo "datapath with netfilter flowtable offload into the PPE flow engine,"
+            echo "hardware SQM (\`hw_ppe.qos\`) and the \`ppe-qos\` queue classifiers."
+            echo "No NSS: this is the host-driven offload track."
+            echo
+            echo "- **Source**: \`${UPSTREAM_REPO}@${SHA}\` (branch \`${UPSTREAM_REF}\`)"
+            echo "- **Targets**: \`qualcommax/ipq807x\` and \`qualcommax/ipq60xx\`, every board"
+            echo "- **Updated**: $(date -u +%F) (run \`${GITHUB_RUN_ID}\`)"
+            echo
+            echo "This is one permanent prerelease - every build replaces the assets and"
+            echo "these notes in place, so the link never changes."
+            echo
+            echo "Pick the \`...-<your device>-squashfs-sysupgrade.bin\` asset and flash it"
+            echo "over an existing OpenWrt install. These are sysupgrade images only -"
+            echo "there is no factory image; install stock OpenWrt first if you are not"
+            echo "already running it."
+            echo
+            echo "Turn the offload on under Network -> Firewall (software and hardware flow"
+            echo "offloading); \`grep -c HW_OFFLOAD /proc/net/nf_conntrack\` shows live"
+            echo "hardware flows. Shaping is \`hw_ppe.qos\` under Network -> SQM and the"
+            echo "queue classifiers under Network -> PPE QoS."
+          } >release_notes.md
+
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --notes-file release_notes.md --prerelease --latest=false

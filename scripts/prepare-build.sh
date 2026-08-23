@@ -15,6 +15,8 @@
 # Optional env:
 #   FEEDS         newline-separated `src-git <name> <url>` lines to append to feeds.conf
 #   CONFIG_FRAGMENT  repo-relative .config fragment appended last (flavour, e.g. mesh)
+#   COMMON        devices/<COMMON> holding the shared config and overlays (default: common)
+#   PATCH_FEEDS   "0" to skip patches/feeds/ (default: apply them)
 
 set -euo pipefail
 
@@ -28,7 +30,7 @@ source "$(dirname -- "$0")/lib/log.sh"
 
 FEEDS="${FEEDS:-}"
 CONFIG_FRAGMENT="${CONFIG_FRAGMENT:-}"
-COMMON_DIR="$BUILDER_REPO/devices/common"
+COMMON_DIR="$BUILDER_REPO/devices/${COMMON:-common}"
 DEVICE_DIR="$BUILDER_REPO/devices/$DEVICE"
 
 [[ -f "$DEVICE_DIR/config" ]] || log::die "$DEVICE_DIR/config not found"
@@ -70,20 +72,25 @@ log::info "Updating + installing all feeds"
 
 # 1b. Apply local patches to feed packages (patches/feeds/<feed>/*.patch, paths
 #     relative to the feed root). Currently only the NSS DSCP column on the
-#     built-in Status -> Realtime -> Connections page.
-shopt -s nullglob
-for p in "$BUILDER_REPO"/patches/feeds/*/*.patch; do
-  feed="feeds/$(basename "$(dirname "$p")")"
-  if patch -p1 -d "$feed" --dry-run --forward <"$p" >/dev/null 2>&1; then
-    log::info "Patching $feed with $(basename "$p")"
-    patch -p1 -d "$feed" --forward <"$p"
-  elif patch -p1 -d "$feed" --dry-run --reverse <"$p" >/dev/null 2>&1; then
-    log::info "Skipping $(basename "$p") (already applied)"
-  else
-    log::die "$(basename "$p") does not apply to $feed"
-  fi
-done
-shopt -u nullglob
+#     built-in Status -> Realtime -> Connections page, which is why a build with
+#     no NSS in it sets PATCH_FEEDS=0.
+if [[ "${PATCH_FEEDS:-1}" == 0 ]]; then
+  log::info "PATCH_FEEDS=0; skipping patches/feeds/"
+else
+  shopt -s nullglob
+  for p in "$BUILDER_REPO"/patches/feeds/*/*.patch; do
+    feed="feeds/$(basename "$(dirname "$p")")"
+    if patch -p1 -d "$feed" --dry-run --forward <"$p" >/dev/null 2>&1; then
+      log::info "Patching $feed with $(basename "$p")"
+      patch -p1 -d "$feed" --forward <"$p"
+    elif patch -p1 -d "$feed" --dry-run --reverse <"$p" >/dev/null 2>&1; then
+      log::info "Skipping $(basename "$p") (already applied)"
+    else
+      log::die "$(basename "$p") does not apply to $feed"
+    fi
+  done
+  shopt -u nullglob
+fi
 
 # 2. Assemble .config from the common + device configs, then resolve.
 log::info "Assembling .config from ${CONFIGS[*]#"$BUILDER_REPO"/}"

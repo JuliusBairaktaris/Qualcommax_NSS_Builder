@@ -44,6 +44,13 @@ firmware 11.4.0.5, the last line that supports them, so that release carries
 11.4 in place of the 12.5 firmware the default images ship. Take it if you run
 802.11s; take `edma-nss-*` otherwise.
 
+Separately, the `ppe-offload-test` prerelease carries **PPE hardware
+flow-offload test images** — stock OpenWrt plus LuCI on the in-kernel
+`qca_edma`/`qca_ppe` datapath, with no NSS at all — for every ipq807x *and*
+ipq60xx board. It is one permanent prerelease whose assets and notes are
+replaced in place, so the link keeps working. These are for testing the
+offload, not a router build.
+
 These are **sysupgrade images only** — there is no factory image. You must
 already be running OpenWrt on the device; if you are on stock vendor firmware,
 install stock OpenWrt first (your device's
@@ -211,12 +218,15 @@ devices/common/          # shared by every image
   files.edma-nss/        # edma-nss overlay (rc.local)
 devices/xiaomi_ax3600/   # one directory per build: config + optional overlays
 devices/ipq807x-{1g,512m,256m}/
+devices/common-ppe/      # shared by the PPE test images (stock OpenWrt + LuCI)
+devices/ppe-{ipq807x,ipq60xx}/
 scripts/                 # check-updates, prepare-build, prune-releases (tested, linted)
 docs/                    # CUSTOMIZE.md, ARCHITECTURE.md
-.github/workflows/       # build.yml (check → release → build → publish → prune), lint.yml
+.github/workflows/       # build.yml, build-ppe.yml, lint.yml
 ```
 
-Each `devices/<name>/config` is concatenated onto `devices/common/config` and
+Each `devices/<name>/config` is concatenated onto `devices/common/config` (or
+`devices/common-ppe/config`, which `COMMON` selects for the PPE images) and
 resolved with `make defconfig`, which is verified to have kept every requested
 symbol — a silently reduced image fails the build instead of shipping.
 
@@ -229,6 +239,12 @@ discards it otherwise, so a release is never missing devices; `prune` keeps the
 newest `KEEP` releases. Builds are uncached (fresh runner, reproducible
 `SOURCE_DATE_EPOCH`) and the pipeline is linted (`actionlint`, `shellcheck`,
 `yamllint`) on every PR.
+
+`build-ppe.yml` is the same shape with one difference: instead of a new release
+per build it keeps a single prerelease, `ppe-offload-test`, and replaces its
+assets and notes in place. The notes record the commit they were built from,
+and only a successful build writes them — so a failed run is retried on the
+next scheduled tick rather than stamping itself as done.
 
 ---
 

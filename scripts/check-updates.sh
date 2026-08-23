@@ -51,8 +51,6 @@ resolve_sha() {
 up_sha="$(resolve_sha "$UPSTREAM_REPO" "$UPSTREAM_REF")"
 nss_sha=""
 [[ -n "$NSS_REPO" ]] && nss_sha="$(resolve_sha "$NSS_REPO" "$NSS_REF")"
-ppe_sha=""
-[[ -n "${PPE_REF:-}" ]] && ppe_sha="$(resolve_sha "$UPSTREAM_REPO" "$PPE_REF")"
 
 # Latest published release body for a prefix; empty when there is none.
 latest_body() {
@@ -77,20 +75,15 @@ else
   else
     need=true
   fi
-  if [[ "$need" == false && -n "$ppe_sha" ]]; then
-    body="$(latest_body "${PPE_RELEASE_PREFIX:?PPE_RELEASE_PREFIX required with PPE_REF}")"
-    [[ "$body" == *"$ppe_sha"* ]] || need=true
-  fi
 fi
 
-log::info "$UPSTREAM_REPO@$UPSTREAM_REF -> ${up_sha:0:12}${nss_sha:+  nss ${nss_sha:0:12}}${ppe_sha:+  ppe ${ppe_sha:0:12}}  build=$need"
+log::info "$UPSTREAM_REPO@$UPSTREAM_REF -> ${up_sha:0:12}${nss_sha:+  nss ${nss_sha:0:12}}  build=$need"
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
     echo "## Upstream check"
     echo "- \`$UPSTREAM_REPO\` -> \`${up_sha:0:12}\`"
     [[ -n "$nss_sha" ]] && echo "- nss -> \`${nss_sha:0:12}\`"
-    [[ -n "$ppe_sha" ]] && echo "- ppe -> \`${ppe_sha:0:12}\`"
     echo "- need: **$need**"
   } >>"$GITHUB_STEP_SUMMARY"
 fi
@@ -99,7 +92,6 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   {
     echo "upstream_sha=$up_sha"
     echo "nss_sha=$nss_sha"
-    echo "ppe_sha=$ppe_sha"
     echo "need=$need"
   } >>"$GITHUB_OUTPUT"
 fi

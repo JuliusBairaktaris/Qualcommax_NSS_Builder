@@ -10,6 +10,8 @@ on:
     branches: [main]
     paths:
       - 'devices/**'
+      - '!devices/common-ppe/**'
+      - '!devices/ppe-*/**'
       - 'scripts/**'
       - '.github/workflows/build.yml'
   schedule:
@@ -25,14 +27,12 @@ permissions:
 env:
   UPSTREAM_REPO: JuliusBairaktaris/openwrt-nss-edma
   UPSTREAM_REF: nss-edma-rework
-  PPE_REF: ppe-offload
   NSS_REPO: JuliusBairaktaris/nss-packages
   NSS_REF: edma-nss
   TARGET: qualcommax/ipq807x
   VARIANT: edma-nss
   RELEASE_PREFIX: edma-nss
   MESH_RELEASE_PREFIX: edma-nss-mesh
-  PPE_RELEASE_PREFIX: edma-ppe
   KEEP: "2"                     # newest releases to retain, per prefix
   FEEDS: "src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss"
 
@@ -48,7 +48,6 @@ jobs:
     outputs:
       upstream_sha: ${{ steps.check.outputs.upstream_sha }}
       nss_sha: ${{ steps.check.outputs.nss_sha }}
-      ppe_sha: ${{ steps.check.outputs.ppe_sha }}
       need: ${{ steps.check.outputs.need }}
     steps:
       - uses: actions/checkout@v7
@@ -67,11 +66,9 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
       NSS_SHA: ${{ needs.check.outputs.nss_sha }}
-      PPE_SHA: ${{ needs.check.outputs.ppe_sha }}
     outputs:
       tag: ${{ steps.draft.outputs.tag }}
       mesh_tag: ${{ steps.draft.outputs.mesh_tag }}
-      ppe_tag: ${{ steps.draft.outputs.ppe_tag }}
     steps:
       - id: draft
         run: |
@@ -90,15 +87,10 @@ jobs:
               echo "## OpenWrt Build — ${name}"
               echo "- **Date**: $date"
               echo "- **Variant**: \`${name}\`"
-              if [[ "$prefix" == "$PPE_RELEASE_PREFIX" ]]; then
-                echo "- **Target**: \`${TARGET}\` (Xiaomi AX3600 only)"
-                echo "- **Upstream**: \`${UPSTREAM_REPO}@${PPE_SHA}\`"
-              else
-                echo "- **Target**: \`${TARGET}\` (every ipq807x device)"
-                echo "- **Upstream**: \`${UPSTREAM_REPO}@${UPSTREAM_SHA}\`"
-                if [[ -n "${NSS_SHA}" ]]; then
-                  echo "- **NSS**: \`${NSS_SHA}\`"
-                fi
+              echo "- **Target**: \`${TARGET}\` (every ipq807x device)"
+              echo "- **Upstream**: \`${UPSTREAM_REPO}@${UPSTREAM_SHA}\`"
+              if [[ -n "${NSS_SHA}" ]]; then
+                echo "- **NSS**: \`${NSS_SHA}\`"
               fi
               echo "- **Trigger**: \`${GITHUB_EVENT_NAME}\`"
               echo
@@ -110,27 +102,14 @@ jobs:
                 echo "802.11s; the \`${VARIANT}\` release carries the newer 12.5 firmware."
                 echo
               fi
-              if [[ "$prefix" == "$PPE_RELEASE_PREFIX" ]]; then
-                echo "**Hardware flow-offload build (no NSS).** The in-kernel"
-                echo "\`qca_edma\`/\`qca_ppe\` datapath with netfilter flowtable offload"
-                echo "into the PPE flow engine, hardware SQM (\`hw_ppe.qos\`) and the"
-                echo "\`ppe-qos\` queue classifiers, all configurable in LuCI"
-                echo "(Network -> SQM / Network -> PPE QoS). Xiaomi AX3600 only."
-                echo
-              fi
               echo "Pick the \`...-<your device>-squashfs-sysupgrade.bin\` asset and flash"
               echo "it over an existing OpenWrt install. These are sysupgrade images only -"
               echo "there is no factory image; install stock OpenWrt first if you are not"
               echo "already running it."
               echo
-              if [[ "$prefix" == "$PPE_RELEASE_PREFIX" ]]; then
-                echo "Offload and shaping come up from the firewall and sqm config;"
-                echo "\`grep -c HW_OFFLOAD /proc/net/nf_conntrack\` shows live hardware flows."
-              else
-                echo "The offload comes up at boot; \`nss-status\` reports its health."
-                echo "To stay on the plain host stack instead:"
-                echo "\`uci set nss.general.enabled='0'; uci commit nss; reboot\`."
-              fi
+              echo "The offload comes up at boot; \`nss-status\` reports its health."
+              echo "To stay on the plain host stack instead:"
+              echo "\`uci set nss.general.enabled='0'; uci commit nss; reboot\`."
             } >release_notes.md
 
             # stdout is the tag; gh prints the release URL, which would
@@ -147,7 +126,6 @@ jobs:
           {
             echo "tag=$(draft "$RELEASE_PREFIX" "$VARIANT")"
             echo "mesh_tag=$(draft "$MESH_RELEASE_PREFIX" "$MESH_RELEASE_PREFIX")"
-            echo "ppe_tag=$(draft "$PPE_RELEASE_PREFIX" "$PPE_RELEASE_PREFIX")"
           } >>"$GITHUB_OUTPUT"
 
   build:
@@ -171,21 +149,11 @@ jobs:
         include:
           - flavour: mesh
             config_fragment: devices/common/config.mesh
-          # The PPE flavour is one device on its own branch with no NSS feed:
-          # an include with a flavour outside the base matrix adds exactly this
-          # one combination.
-          - device: xiaomi_ax3600
-            flavour: ppe
-            config_fragment: devices/common/config.ppe
     env:
       GH_TOKEN: ${{ github.token }}
       DEVICE: ${{ matrix.device }}
       CONFIG_FRAGMENT: ${{ matrix.config_fragment }}
-      TAG: ${{ matrix.flavour == 'mesh' && needs.release.outputs.mesh_tag || matrix.flavour == 'ppe' && needs.release.outputs.ppe_tag || needs.release.outputs.tag }}
-      # The PPE flavour builds its own branch and adds no NSS feed; VARIANT
-      # picks the files.<variant> overlays in prepare-build.sh.
-      VARIANT: ${{ matrix.flavour == 'ppe' && 'ppe' || 'edma-nss' }}
-      FEEDS: ${{ matrix.flavour == 'ppe' && '' || 'src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss' }}
+      TAG: ${{ matrix.flavour == 'mesh' && needs.release.outputs.mesh_tag || needs.release.outputs.tag }}
     steps:
       - name: Install build dependencies
         run: |
@@ -202,7 +170,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ${{ env.UPSTREAM_REPO }}
-          ref: ${{ matrix.flavour == 'ppe' && needs.check.outputs.ppe_sha || needs.check.outputs.upstream_sha }}
+          ref: ${{ needs.check.outputs.upstream_sha }}
           fetch-depth: 0
           path: openwrt
 
@@ -291,7 +259,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ needs.release.outputs.tag }}
       MESH_TAG: ${{ needs.release.outputs.mesh_tag }}
-      PPE_TAG: ${{ needs.release.outputs.ppe_tag }}
       BUILD_RESULT: ${{ needs.build.result }}
     steps:
       - name: Publish or discard
@@ -303,14 +270,12 @@ jobs:
             # --cleanup-tag: a draft's tag exists only inside the release.
             gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes
             gh release delete "$MESH_TAG" --repo "$GITHUB_REPOSITORY" --yes
-            gh release delete "$PPE_TAG" --repo "$GITHUB_REPOSITORY" --yes
             echo "::error::a build group failed ($BUILD_RESULT); draft releases discarded"
             exit 1
           fi
           # --latest stays on the default flavour: mesh costs the 12.5 firmware
           # line, so it is the deliberate pick, never the one a link lands on.
           gh release edit "$MESH_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false
-          gh release edit "$PPE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
 
   prune:
@@ -332,4 +297,3 @@ jobs:
           # window would drop one flavour's newest image to hold the other's.
           PREFIX="$RELEASE_PREFIX" bash scripts/prune-releases.sh
           PREFIX="$MESH_RELEASE_PREFIX" bash scripts/prune-releases.sh
-          PREFIX="$PPE_RELEASE_PREFIX" bash scripts/prune-releases.sh

@@ -1,0 +1,35 @@
+#
+# PPE hardware flow-offload test images: stock OpenWrt plus LuCI and the levers
+# that drive the offload. Nothing else — the point of these images is to test
+# the qca_edma/qca_ppe datapath, not to ship a router build.
+#
+# Built from the ppe-offload branch, where the offload lives in the kernel
+# driver, so there is no NSS feed and no CONFIG_NSS_* symbol anywhere here.
+#
+# prepare-build.sh concatenates this with devices/<device>/config (which is just
+# the subtarget) and runs `make defconfig`; COMMON=common-ppe in the workflow
+# picks this file over devices/common/config.
+#
+
+CONFIG_TARGET_qualcommax=y
+
+## Every board of the subtarget in one image set, the way the OpenWrt buildbot
+## builds a target. The ath11k memory profile stays at the target default, so
+## the per-RAM grouping the NSS images need does not apply.
+CONFIG_TARGET_MULTI_PROFILE=y
+CONFIG_TARGET_ALL_PROFILES=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+
+## Sysupgrade-only, as with the NSS images: the audience already runs OpenWrt.
+# CONFIG_TARGET_ROOTFS_INITRAMFS is not set
+
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-app-firewall=y
+
+## The offload's levers. sqm-scripts is pinned in this branch to the fork that
+## sizes the hw_ppe bulk queue; ppe-qos owns the switch's queue classifiers and
+## pulls dcb itself.
+CONFIG_PACKAGE_sqm-scripts=y
+CONFIG_PACKAGE_luci-app-sqm=y
+CONFIG_PACKAGE_ppe-qos=y
+CONFIG_PACKAGE_luci-app-ppe-qos=y
