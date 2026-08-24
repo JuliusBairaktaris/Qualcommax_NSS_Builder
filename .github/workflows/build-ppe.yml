@@ -12,6 +12,7 @@ on:
     paths:
       - 'devices/common-ppe/**'
       - 'devices/ppe-*/**'
+      - 'patches/feeds/ppe/**'
       - 'scripts/**'
       - '.github/workflows/build-ppe.yml'
   schedule:
@@ -26,15 +27,19 @@ permissions:
 
 env:
   UPSTREAM_REPO: JuliusBairaktaris/openwrt-nss-edma
-  UPSTREAM_REF: ppe-offload
+  UPSTREAM_REF: ppe-flow-offload
   TAG: ppe-offload-test
-  # No overlay files for this flavour; VARIANT only picks files.<variant>.
+  # No overlay files for this flavour; VARIANT picks files.<variant> and
+  # patches/feeds/<variant>.
   VARIANT: ppe
   COMMON: common-ppe
+  # The luci feed comes from the fork carrying luci-app-ppe-qos (openwrt/luci
+  # PR 8965); prepare-build.sh swaps it in for the default luci feed.
+  FEEDS: "src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos"
 
 jobs:
   check:
-    name: Check ppe-offload
+    name: Check ppe-flow-offload
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     env:
@@ -101,8 +106,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SUBTARGET: ${{ matrix.subtarget }}
       DEVICE: ppe-${{ matrix.subtarget }}
-      # patches/feeds/ holds only the NSS DSCP column for LuCI's connections page.
-      PATCH_FEEDS: "0"
     steps:
       - name: Install build dependencies
         run: |

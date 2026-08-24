@@ -3,8 +3,9 @@
 # that drive the offload. Nothing else — the point of these images is to test
 # the qca_edma/qca_ppe datapath, not to ship a router build.
 #
-# Built from the ppe-offload branch, where the offload lives in the kernel
-# driver, so there is no NSS feed and no CONFIG_NSS_* symbol anywhere here.
+# Built from the ppe-flow-offload branch (PR openwrt#24806), where the offload
+# lives in the kernel driver, so there is no NSS feed and no CONFIG_NSS_*
+# symbol anywhere here.
 #
 # prepare-build.sh concatenates this with devices/<device>/config (which is just
 # the subtarget) and runs `make defconfig`; COMMON=common-ppe in the workflow
@@ -26,9 +27,12 @@ CONFIG_TARGET_PER_DEVICE_ROOTFS=y
 CONFIG_PACKAGE_luci=y
 CONFIG_PACKAGE_luci-app-firewall=y
 
-## The offload's levers. sqm-scripts is pinned in this branch to the fork that
-## sizes the hw_ppe bulk queue; ppe-qos owns the switch's queue classifiers and
-## pulls dcb itself.
+## The offload's levers. ppe-qos is in-tree on the branch; luci-app-ppe-qos
+## comes from the luci feed, which the workflow points at the fork carrying it
+## (openwrt/luci PR 8965); sqm-scripts is repinned by patches/feeds/ppe/ to the
+## fork whose hw_ppe.qos drives the hardware shaper. The tc userspace and the
+## sched kmods the offload is driven from are in the target's DEFAULT_PACKAGES
+## on this branch.
 CONFIG_PACKAGE_sqm-scripts=y
 CONFIG_PACKAGE_luci-app-sqm=y
 CONFIG_PACKAGE_ppe-qos=y

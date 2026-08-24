@@ -1,0 +1,30 @@
+sqm-scripts: pin the fork that carries the hw_ppe script
+
+hw_ppe.qos drives the PPE port shaper and its bulk queue from the SQM
+config, and exists only in the sqm-scripts fork - upstream sqm-scripts has
+no hardware backend. The pin is the tip of the fork's hw-ppe-offload
+branch, which pairs with the qca_ppe driver on ppe-flow-offload: both
+sides shape the port the host is behind rather than metering the wire.
+
+Signed-off-by: Julius Bairaktaris <julius@bairaktaris.de>
+--- a/net/sqm-scripts/Makefile
++++ b/net/sqm-scripts/Makefile
+@@ -8,13 +8,13 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=sqm-scripts
+-PKG_SOURCE_VERSION:=20ba92639546075d8e39346dcb88a3cdfe8ee903
+-PKG_VERSION:=1.7.2
+-PKG_RELEASE:=1
++PKG_SOURCE_VERSION:=27ce43c29252b21e7dd34d710ad3d70a4d8fca07
++PKG_VERSION:=1.7.4
++PKG_RELEASE:=3
+ 
+ PKG_SOURCE_PROTO:=git
+-PKG_SOURCE_URL:=https://github.com/tohojo/sqm-scripts
+-PKG_MIRROR_HASH:=578f7cbf5268a9f7e1689fd6365c11d8d9baebf46773237f46393088d792d8ce
++PKG_SOURCE_URL:=https://github.com/JuliusBairaktaris/sqm-scripts
++PKG_MIRROR_HASH:=skip
+ 
+ PKG_MAINTAINER:=Toke Høiland-Jørgensen <toke@toke.dk>
+ PKG_LICENSE:=GPL-2.0-only
