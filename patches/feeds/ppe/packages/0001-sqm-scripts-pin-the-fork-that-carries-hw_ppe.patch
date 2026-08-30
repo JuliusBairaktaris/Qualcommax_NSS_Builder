@@ -5,8 +5,9 @@ config, and exists only in the sqm-scripts fork - upstream sqm-scripts has
 no hardware backend. The pin is the tip of the fork's hw-ppe-offload
 branch, rebased onto upstream v1.8.0 so it carries the nftables marking
 the feed now builds against, and it pairs with the qca_ppe driver on
-ppe-flow-offload: both sides shape the port the host is behind rather than
-metering the wire.
+ppe-flow-offload: the driver serves priorities eight and up from a
+schedulable band of their own, and the script shapes only the download
+into it, so local traffic between switch ports runs at line rate.
 
 PKG_VERSION names a release upstream has not made, so the fork's tarball
 never shares a download name with the one the unpatched feed fetches.
@@ -20,8 +21,8 @@ Signed-off-by: Julius Bairaktaris <julius@bairaktaris.de>
  PKG_NAME:=sqm-scripts
 -PKG_SOURCE_VERSION:=77cf89e82ced9b215cc02f64fd471f5278b7d031
 -PKG_VERSION:=1.8.0
-+PKG_SOURCE_VERSION:=6b32d92c815e099d55cd0800d12e0db6e8ccef17
-+PKG_VERSION:=1.8.1
++PKG_SOURCE_VERSION:=51a4009f1361dd56d8ee71ed602d115785fd7b7c
++PKG_VERSION:=1.8.2
  PKG_RELEASE:=1
  
  PKG_SOURCE_PROTO:=git
