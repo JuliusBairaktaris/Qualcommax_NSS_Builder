@@ -73,6 +73,10 @@ if [[ "$DRY_RUN" == "1" ]]; then
   exit 0
 fi
 
+# Deleting a release drops its download counts; fold them into the lifetime
+# total first, and never delete unaccounted.
+bash "$(dirname -- "$0")/download-stats.sh" "${to_delete[@]}"
+
 failed=0
 for tag in "${to_delete[@]}"; do
   if gh release delete "$tag" --repo "$REPO" --yes --cleanup-tag; then

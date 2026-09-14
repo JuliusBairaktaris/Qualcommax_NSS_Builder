@@ -6,7 +6,7 @@
 [![Lint](https://img.shields.io/github/actions/workflow/status/JuliusBairaktaris/Qualcommax_NSS_Builder/lint.yml?branch=main&style=flat-square&logo=github&label=Lint)](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/actions/workflows/lint.yml)
 [![License](https://img.shields.io/github/license/JuliusBairaktaris/Qualcommax_NSS_Builder?style=flat-square&label=License)](LICENSE)
 [![Last Commit](https://img.shields.io/github/last-commit/JuliusBairaktaris/Qualcommax_NSS_Builder?style=flat-square&label=Last%20Commit)](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/commits/main)
-[![Downloads](https://img.shields.io/github/downloads/JuliusBairaktaris/Qualcommax_NSS_Builder/total?style=flat-square&label=Downloads)](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/releases)
+[![Downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FJuliusBairaktaris%2FQualcommax_NSS_Builder%2Fstats%2Fdownloads.json&style=flat-square)](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/releases)
 
 A GitHub Actions pipeline that builds an OpenWrt image for **every IPQ807x
 device in the target** — all 39 of them: Qualcomm NSS hardware offload running
