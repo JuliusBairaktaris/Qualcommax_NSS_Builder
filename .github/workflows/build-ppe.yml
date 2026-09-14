@@ -174,6 +174,11 @@ jobs:
           grep 'sysupgrade.bin' "$out/sha256sums" >"sha256sums-${SUBTARGET}.txt"
           cp "$out/config.buildinfo" "config-${SUBTARGET}.buildinfo"
 
+          # --clobber deletes and re-uploads, which resets the download count;
+          # fold this subtarget's assets into the lifetime total first.
+          REPO="$GITHUB_REPOSITORY" bash builder/scripts/download-stats.sh \
+            "$TAG:^(openwrt-qualcommax-${SUBTARGET}-|sha256sums-${SUBTARGET}\\.txt$|config-${SUBTARGET}\\.buildinfo$)"
+
           for attempt in 1 2 3; do
             gh release upload "$TAG" \
               --repo "$GITHUB_REPOSITORY" --clobber \

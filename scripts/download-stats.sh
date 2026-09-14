@@ -7,8 +7,11 @@
 # release deleted so far; the badge message is that plus everything still
 # published.
 #
-# Usage: download-stats.sh [tag...]
-#   tag   release about to be deleted; its downloads are folded into `pruned`
+# Usage: download-stats.sh [tag[:regex]...]
+#   tag    release about to be deleted; its downloads are folded into `pruned`
+#   regex  fold only the assets whose name matches, for assets about to be
+#          replaced (`gh release upload --clobber` deletes and re-uploads,
+#          which resets the count)
 #
 # Required env: REPO (owner/name), GH_TOKEN
 
@@ -26,9 +29,13 @@ cur="$(gh api "repos/$REPO/contents/$FILE?ref=$BRANCH")"
 pruned="$(jq -r '.content' <<<"$cur" | base64 -d | jq '.pruned')"
 [[ "$pruned" =~ ^[0-9]+$ ]] || log::die "$FILE on $BRANCH has no numeric .pruned"
 
-for tag in "$@"; do
-  n="$(gh api "repos/$REPO/releases/tags/$tag" --jq '[.assets[].download_count] | add // 0')"
-  log::info "$tag: $n download(s) folded into pruned total"
+for arg in "$@"; do
+  tag="${arg%%:*}"
+  re="${arg#"$tag"}"
+  re="${re#:}"
+  n="$(gh api "repos/$REPO/releases/tags/$tag" |
+    jq --arg re "$re" '[.assets[] | select(.name | test($re)) | .download_count] | add // 0')"
+  log::info "$arg: $n download(s) folded into pruned total"
   pruned=$((pruned + n))
 done
 
@@ -43,8 +50,18 @@ if [[ "$new" == "$(jq -r '.content' <<<"$cur" | base64 -d | jq -c .)" ]]; then
   exit 0
 fi
 
-gh api -X PUT "repos/$REPO/contents/$FILE" --silent \
-  -f branch="$BRANCH" -f message="downloads: $total" \
-  -f sha="$(jq -r '.sha' <<<"$cur")" \
-  -f content="$(printf '%s\n' "$new" | base64 -w0)"
-log::info "downloads: $pruned pruned + $live live = $total"
+# Matrix jobs and the two workflows update the file concurrently; the PUT is
+# conditional on the sha read above, so on a conflict re-read and retry.
+for attempt in 1 2 3 4 5; do
+  if gh api -X PUT "repos/$REPO/contents/$FILE" --silent \
+    -f branch="$BRANCH" -f message="downloads: $total" \
+    -f sha="$(jq -r '.sha' <<<"$cur")" \
+    -f content="$(printf '%s\n' "$new" | base64 -w0)"; then
+    log::info "downloads: $pruned pruned + $live live = $total"
+    exit 0
+  fi
+  log::warn "update conflict (attempt $attempt); retrying"
+  sleep "$attempt"
+  cur="$(gh api "repos/$REPO/contents/$FILE?ref=$BRANCH")"
+done
+log::die "could not update $FILE on $BRANCH"
