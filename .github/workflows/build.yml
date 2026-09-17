@@ -157,11 +157,11 @@ jobs:
         # One entry per devices/<name>/ directory. The ipq807x-* groups exist
         # because the ath11k memory profile is compile-time and image-wide, so
         # boards can only share a build when they share a profile.
-        device: [xiaomi_ax3600, ipq807x-1g, ipq807x-512m, ipq807x-256m]
+        device: [ipq807x-1g]
         # The flavour is a .config fragment on top of the same overlays and the
         # same source trees; mesh needs the 11.4 firmware, which is image-wide
         # too, so it cannot share a build with the default flavour either.
-        flavour: [default, mesh]
+        flavour: [default]
         include:
           - flavour: mesh
             config_fragment: devices/common/config.mesh
