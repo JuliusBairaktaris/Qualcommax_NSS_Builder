@@ -23,6 +23,10 @@ CONFIG_TARGET_MULTI_PROFILE=y
 CONFIG_TARGET_ALL_PROFILES=y
 CONFIG_TARGET_PER_DEVICE_ROOTFS=y
 
+## Compiler cache, restored and saved by the workflow.
+CONFIG_CCACHE=y
+CONFIG_DEVEL=y
+
 ## Sysupgrade-only, as with the NSS images: the audience already runs OpenWrt.
 # CONFIG_TARGET_ROOTFS_INITRAMFS is not set
 

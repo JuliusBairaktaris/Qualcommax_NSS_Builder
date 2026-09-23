@@ -117,7 +117,7 @@ included desktop-router config:
 | **Diagnostics** | `nss-status` CLI health report (now incl. fast-lane counters) + LuCI **Status → NSS Offload** page + per-station firmware Wi-Fi counters (`/sys/kernel/debug/ieee80211/phy*/netdev:*/stations/<mac>/nss_stats`: A-MSDU aggregation, MPDU retries) |
 | **Firmware/profile** | `NSS.FW.12.5-210-HK.R`; NSS memory profile matched to the board's RAM (HIGH / MEDIUM / LOW) |
 | **Security** | OpenSSH only (post-quantum KEX, AEAD/ETM, RSA ≥ 3072), `PKG_*` hardening (ASLR/PIE, stack protector, FORTIFY_3, RELRO, seccomp), WAN DROP + BCP38, HTTPS redirect, OQS provider in OpenSSL |
-| **Toolchain** | GCC 15 + Graphite, Binutils 2.46, Mold linker, LTO, `-mcpu=cortex-a53+crc+crypto`; ccache off |
+| **Toolchain** | GCC 15 + Graphite, Binutils 2.46, Mold linker, LTO, `-mcpu=cortex-a53+crc+crypto`; ccache kept between CI runs |
 | **Userland** | LuCI (SSL), `htop`, `iperf3`, `curl`, BBR |
 
 Toolchain and package pins live in

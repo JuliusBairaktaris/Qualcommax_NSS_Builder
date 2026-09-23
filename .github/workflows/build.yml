@@ -226,11 +226,44 @@ jobs:
             sleep 5
           done
 
+      # ccache hashes neither the assembler nor cc1, so the key covers every
+      # toolchain input and a change there starts from an empty cache. GitHub
+      # drops entries unused for 7 days and evicts the oldest over the quota.
+      # The GCC version string carries the OpenWrt revision, which lands in
+      # the compiler binary and the kernel's autoconf.h and so misses every
+      # target object on each new commit; the toolchain tree hash replaces it.
+      - name: Compute ccache key
+        id: ccache
+        run: |
+          set -euo pipefail
+          tree=$(git -C openwrt rev-parse HEAD:toolchain)
+          mk=openwrt/toolchain/gcc/common.mk
+          # shellcheck disable=SC2016 # make variables, not shell
+          grep -qx 'PKGVERSION=OpenWrt GCC $(PKG_VERSION) $(REVISION)' "$mk"
+          sed -i "s/^PKGVERSION=.*/PKGVERSION=OpenWrt GCC \$(PKG_VERSION) ${tree:0:12}/" "$mk"
+          sum=$({
+            echo "$tree"
+            grep -E '^CONFIG_(BINUTILS|GCC|LIBC|MUSL|GLIBC)_' openwrt/.config
+            gcc --version; as --version
+          } | sha256sum | cut -c1-16)
+          echo "prefix=ccache-${{ env.VARIANT }}-$sum-" >>"$GITHUB_OUTPUT"
+
+      - name: Restore ccache
+        uses: actions/cache@v6
+        with:
+          path: openwrt/.ccache
+          key: ${{ steps.ccache.outputs.prefix }}${{ github.run_id }}
+          restore-keys: ${{ steps.ccache.outputs.prefix }}
+
       - name: Build
         working-directory: openwrt
+        env:
+          CCACHE_COMPILERCHECK: content
+          CCACHE_MAXSIZE: 4G
         run: |
           set -euo pipefail
           make -j"$(nproc)"
+          staging_dir/host/bin/ccache -s
 
       - name: Upload images
         run: |
