@@ -261,7 +261,7 @@ jobs:
           CCACHE_MAXSIZE: 4G
         run: |
           set -euo pipefail
-          make -j"$(nproc)"
+          make -j"$(nproc)" || make -j1 V=s
           staging_dir/host/bin/ccache -s
 
       - name: Upload images
