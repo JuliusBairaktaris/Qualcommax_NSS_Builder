@@ -1,0 +1,24 @@
+#
+# Every ipq60xx board with 1 GB or more of RAM, in one image set.
+#
+# Concatenated onto devices/common/config by prepare-build.sh. The groups are
+# split by the ath11k memory profile, as for ipq807x (see
+# devices/ipq807x-1g/config). MEDIUM is the largest NSS profile on ipq60xx, so
+# both groups take it.
+#
+
+CONFIG_TARGET_qualcommax_ipq60xx=y
+CONFIG_TARGET_MULTI_PROFILE=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+
+CONFIG_ATH11K_MEM_PROFILE_1G=y
+CONFIG_NSS_MEM_PROFILE_MEDIUM=y
+
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_cambiumnetworks_xe3-4=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-cs-02=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-cs-07=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_link_nn6000-v1=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_link_nn6000-v2=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_tplink_eap623-outdoor-hd-v1=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_tplink_eap620-hd-v2=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_tplink_eap620-hd-v3=y

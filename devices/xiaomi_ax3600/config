@@ -4,6 +4,7 @@
 # Concatenated onto devices/common/config by prepare-build.sh.
 #
 
+CONFIG_TARGET_qualcommax_ipq807x=y
 CONFIG_TARGET_qualcommax_ipq807x_DEVICE_xiaomi_ax3600=y
 
 # 512 MB board: the ath11k profile is also forced by kmod-ath11k's NSS block,

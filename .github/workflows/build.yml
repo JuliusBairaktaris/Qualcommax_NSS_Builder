@@ -1,7 +1,7 @@
 name: Build
 
-# Builds the edma-nss images for every ipq807x device, in four groups and two
-# flavours (default, and mesh on the 11.4 firmware line):
+# Builds the edma-nss images for every ipq807x and ipq60xx device, in six
+# groups and two flavours (default, and mesh on the 11.4 firmware line):
 #   check (upstream moved?) -> draft release -> build each group -> publish -> prune
 # All build parameters live in the `env:` block below and in devices/<group>/config.
 on:
@@ -29,7 +29,6 @@ env:
   UPSTREAM_REF: nss-edma-rework
   NSS_REPO: JuliusBairaktaris/nss-packages
   NSS_REF: edma-nss
-  TARGET: qualcommax/ipq807x
   VARIANT: edma-nss
   RELEASE_PREFIX: edma-nss
   MESH_RELEASE_PREFIX: edma-nss-mesh
@@ -103,7 +102,7 @@ jobs:
               echo "## OpenWrt Build — ${name}"
               echo "- **Date**: $date"
               echo "- **Variant**: \`${name}\`"
-              echo "- **Target**: \`${TARGET}\` (every ipq807x device)"
+              echo "- **Targets**: \`qualcommax/ipq807x\`, \`qualcommax/ipq60xx\`"
               echo "- **Upstream**: \`${UPSTREAM_REPO}@${UPSTREAM_SHA}\`"
               if [[ -n "${NSS_SHA}" ]]; then
                 echo "- **NSS**: \`${NSS_SHA}\`"
@@ -154,10 +153,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # One entry per devices/<name>/ directory. The ipq807x-* groups exist
+        # One entry per devices/<name>/ directory. The memory-profile groups exist
         # because the ath11k memory profile is compile-time and image-wide, so
         # boards can only share a build when they share a profile.
-        device: [xiaomi_ax3600, ipq807x-1g, ipq807x-512m, ipq807x-256m]
+        device: [xiaomi_ax3600, ipq807x-1g, ipq807x-512m, ipq807x-256m, ipq60xx-1g, ipq60xx-512m]
         # The flavour is a .config fragment on top of the same overlays and the
         # same source trees; mesh needs the 11.4 firmware, which is image-wide
         # too, so it cannot share a build with the default flavour either.
@@ -268,11 +267,11 @@ jobs:
       - name: Upload images
         run: |
           set -euo pipefail
-          out="openwrt/bin/targets/${TARGET}"
+          out=$(dirname "$(find openwrt/bin/targets -name sha256sums)")
 
           # Sysupgrade images only - no factory/initramfs, per the project's
           # sysupgrade-from-existing-OpenWrt model. Image names carry the
-          # device, so the four groups never collide in the release. The build
+          # device, so the groups never collide in the release. The build
           # metadata does, so it is uploaded under the group name instead of
           # dropped - it is the answer to "what exactly was in this image".
           mapfile -t assets < <(find "$out" -maxdepth 1 -type f -name 'openwrt-*-squashfs-sysupgrade.bin')

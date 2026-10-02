@@ -8,7 +8,7 @@
 
 ## Target Platform
 CONFIG_TARGET_qualcommax=y
-CONFIG_TARGET_qualcommax_ipq807x=y
+## The subtarget is set per group in devices/<group>/config.
 
 ## Sysupgrade-only images: the audience is people who already run OpenWrt, so
 ## no initramfs/factory install images. initramfs is default-y for this target,

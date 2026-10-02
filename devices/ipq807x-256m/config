@@ -11,6 +11,7 @@
 # that a second 256 MB board is one line and not a conversion.
 #
 
+CONFIG_TARGET_qualcommax_ipq807x=y
 CONFIG_TARGET_MULTI_PROFILE=y
 CONFIG_TARGET_PER_DEVICE_ROOTFS=y
 
