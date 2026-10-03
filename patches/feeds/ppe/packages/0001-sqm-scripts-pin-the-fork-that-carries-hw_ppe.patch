@@ -21,7 +21,7 @@ Signed-off-by: Julius Bairaktaris <julius@bairaktaris.de>
  PKG_NAME:=sqm-scripts
 -PKG_SOURCE_VERSION:=77cf89e82ced9b215cc02f64fd471f5278b7d031
 -PKG_VERSION:=1.8.0
-+PKG_SOURCE_VERSION:=85845dd75c0bd27ecdcc2c4a9fbb0b3a96888b0d
++PKG_SOURCE_VERSION:=a9c7b6dbd95d9bc652905b7bdd10839c08b2c14e
 +PKG_VERSION:=1.8.3
  PKG_RELEASE:=1
  
