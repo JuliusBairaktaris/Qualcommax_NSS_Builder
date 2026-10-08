@@ -215,15 +215,41 @@ jobs:
             echo "KBUILD_BUILD_HOST=github"
           } >>"$GITHUB_ENV"
 
+      # The OpenWrt source mirrors can stall, and a git source
+      # cannot fall back to a fresh clone: its PKG_MIRROR_HASH covers the zstd
+      # stream, which changes with the zstd version. Verified downloads are kept
+      # between runs; download.pl deletes any that no longer match their hash.
+      # Old source versions accumulate; deleting the dl- entries starts over.
+      - name: Restore sources
+        uses: actions/cache/restore@v6
+        with:
+          path: openwrt/dl
+          key: dl-${{ github.run_id }}
+          restore-keys: dl-
+
       - name: Download sources
+        id: download
         working-directory: openwrt
         run: |
           set -euo pipefail
+          mkdir -p dl
+          before=$(find dl -maxdepth 1 -type f | wc -l)
           for attempt in 1 2 3; do
             make download -j"$(nproc)" V=s && break
             echo "Download attempt $attempt failed; retrying..."
             sleep 5
           done
+          echo "grew=$(($(find dl -maxdepth 1 -type f | wc -l) > before))" >>"$GITHUB_OUTPUT"
+
+      # One entry per run that fetched something new: the first job to get here
+      # saves, the others find the key taken. Each job restores the newest
+      # entry, so it grows to the union of every group's sources.
+      - name: Save sources
+        if: steps.download.outputs.grew == 1
+        uses: actions/cache/save@v6
+        with:
+          path: openwrt/dl
+          key: dl-${{ github.run_id }}
 
       # ccache hashes neither the assembler nor cc1, so the key covers every
       # toolchain input and a change there starts from an empty cache. GitHub
