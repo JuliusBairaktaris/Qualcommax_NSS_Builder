@@ -1,0 +1,52 @@
+From 7da0aa1672d9d32d057b6657b6f4675555542fe8 Mon Sep 17 00:00:00 2001
+From: Julius Bairaktaris <julius@bairaktaris.de>
+Date: Sat, 3 Oct 2026 20:13:42 +0200
+Subject: [PATCH] kernel: select evdev for HID only with input-support
+
+Since kmod-input-evdev depends on input-support, kmod-hid and
+kmod-usb-hid are hidden without it, and so is everything selecting
+kmod-hid: kmod-bluetooth, kmod-hci-uart and kmod-btusb. A device that
+lists one of them in DEVICE_PACKAGES fails to build as a single profile:
+
+  ERROR: unable to select packages:
+    kmod-hci-uart (no such package):
+
+Neither module needs evdev, so select it only with input-support.
+
+Fixes: a7c50f7d7398 ("input-support: add a package for input device handling")
+Assisted-by: Claude:claude-opus-5-5
+Signed-off-by: Julius Bairaktaris <julius@bairaktaris.de>
+---
+ package/kernel/linux/modules/input.mk | 2 +-
+ package/kernel/linux/modules/usb.mk   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/package/kernel/linux/modules/input.mk b/package/kernel/linux/modules/input.mk
+index 7e67944f1ba..6b3bf579eaf 100644
+--- a/package/kernel/linux/modules/input.mk
++++ b/package/kernel/linux/modules/input.mk
+@@ -10,7 +10,7 @@ INPUT_MODULES_MENU:=Input modules
+ define KernelPackage/hid
+   SUBMENU:=$(INPUT_MODULES_MENU)
+   TITLE:=HID Devices
+-  DEPENDS:=+kmod-input-core +kmod-input-evdev
++  DEPENDS:=+kmod-input-core +PACKAGE_input-support:kmod-input-evdev
+   KCONFIG:=CONFIG_HID CONFIG_HID_SUPPORT=y CONFIG_HIDRAW=y CONFIG_HID_BATTERY_STRENGTH=y
+   FILES:=$(LINUX_DIR)/drivers/hid/hid.ko
+   AUTOLOAD:=$(call AutoLoad,61,hid)
+diff --git a/package/kernel/linux/modules/usb.mk b/package/kernel/linux/modules/usb.mk
+index b44b7e0b0a1..31560ae9712 100644
+--- a/package/kernel/linux/modules/usb.mk
++++ b/package/kernel/linux/modules/usb.mk
+@@ -1662,7 +1662,7 @@ $(eval $(call KernelPackage,usb-net-pl))
+ define KernelPackage/usb-hid
+   TITLE:=Support for USB Human Input Devices
+   KCONFIG:=CONFIG_HID_SUPPORT=y CONFIG_USB_HID CONFIG_USB_HIDDEV=y
+-  DEPENDS:=+kmod-hid +kmod-hid-generic +kmod-input-evdev
++  DEPENDS:=+kmod-hid +kmod-hid-generic +PACKAGE_input-support:kmod-input-evdev
+   FILES:=$(LINUX_DIR)/drivers/$(USBHID_DIR)/usbhid.ko
+   AUTOLOAD:=$(call AutoProbe,usbhid)
+   $(call AddDepends/usb)
+-- 
+2.53.0
+

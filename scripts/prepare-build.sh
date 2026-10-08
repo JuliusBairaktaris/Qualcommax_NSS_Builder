@@ -90,6 +90,18 @@ for p in "$BUILDER_REPO/patches/feeds/$VARIANT"/*/*.patch; do
     log::die "$(basename "$p") does not apply to $feed"
   fi
 done
+# patches/tree/<variant>/*.patch carry fixes still pending upstream; one that
+# main has merged reverse-applies and is skipped.
+for p in "$BUILDER_REPO/patches/tree/$VARIANT"/*.patch; do
+  if patch -p1 --dry-run --forward <"$p" >/dev/null 2>&1; then
+    log::info "Patching the tree with $(basename "$p")"
+    patch -p1 --forward <"$p"
+  elif patch -p1 --dry-run --reverse <"$p" >/dev/null 2>&1; then
+    log::info "Skipping $(basename "$p") (already applied)"
+  else
+    log::die "$(basename "$p") does not apply to the tree"
+  fi
+done
 shopt -u nullglob
 
 # 2. Assemble .config from the common + device configs, then resolve.
