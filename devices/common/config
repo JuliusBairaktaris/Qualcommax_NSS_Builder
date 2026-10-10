@@ -104,11 +104,8 @@ CONFIG_PACKAGE_kmod-qca-nss-drv-pppoe=y
 ## kmod-qca-nss-drv-bridge-mgr: hardware offload of wired LAN-bridge forwarding
 ## (brought up by nss-up alongside the rest of the plane).
 CONFIG_PACKAGE_kmod-qca-nss-drv-bridge-mgr=y
-## kmod-qca-mcs: IGMP/MLD bridge snooping; enables the ECM multicast classifier
-## (ECM_MULTICAST_ENABLE) so snooped groups replicate in PPE hardware instead of
-## flooding to the host. Loaded by nss-up before ECM. Depends on the mroute
-## kernel options (kept explicit here).
-CONFIG_PACKAGE_kmod-qca-mcs=y
+## The mroute kernel options give ECM the MFC offload hooks; ECM reads the
+## bridge's own multicast database for the LAN ports (kept explicit here).
 CONFIG_KERNEL_IP_MROUTE=y
 CONFIG_KERNEL_IPV6_MROUTE=y
 ## Same-subnet multicast is hardware-bridged (switchdev MDB -> PPE) with the

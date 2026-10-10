@@ -83,7 +83,7 @@ The setting survives sysupgrade.
 |---|---|
 | NSS core | `kmod-qca-nss-drv`, firmware memory profile matched to RAM |
 | NAT offload | ECM (IPv4 NAT, IPv6 routing), PPPoE |
-| Bridge, multicast | `kmod-qca-nss-drv-bridge-mgr`, `kmod-qca-mcs` |
+| Bridge, multicast | `kmod-qca-nss-drv-bridge-mgr`, `kmod-qca-nss-ecm` |
 | SQM | NSS qdiscs with `sqm-scripts-nss` and `luci-app-sqm`, shipped disabled; set your line rates and enable it |
 | QoS marking | `nssqos`, `luci-app-nssqos` (DSCP rules for offloaded flows) |
 | Wi-Fi | ath11k NSS offload (wifili) |
