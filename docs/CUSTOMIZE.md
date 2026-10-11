@@ -8,7 +8,7 @@ companion, and the overlay directories. This page shows what each one does.
 
 ```yaml
 env:
-  UPSTREAM_REPO: JuliusBairaktaris/openwrt-nss-edma   # OpenWrt source tree
+  UPSTREAM_REPO: JuliusBairaktaris/openwrt-ppe-nss   # OpenWrt source tree
   UPSTREAM_REF: ppe-nss                               # branch, tag, or 40-char SHA
   NSS_REPO: JuliusBairaktaris/nss-packages            # nss-firmware feed (blank to disable)
   NSS_REF: edma-nss
@@ -71,7 +71,7 @@ set in both) and runs `make defconfig`. To change something, edit in a real
 OpenWrt checkout and diff back:
 
 ```sh
-git clone --branch ppe-nss https://github.com/JuliusBairaktaris/openwrt-nss-edma openwrt
+git clone --branch ppe-nss https://github.com/JuliusBairaktaris/openwrt-ppe-nss openwrt
 cat devices/common/config devices/xiaomi_ax3600/config > openwrt/.config
 cd openwrt && make menuconfig
 ./scripts/diffconfig.sh > /tmp/full.config        # minimal .config (deltas only)

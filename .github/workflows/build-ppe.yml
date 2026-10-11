@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 env:
-  UPSTREAM_REPO: JuliusBairaktaris/openwrt-nss-edma
+  UPSTREAM_REPO: JuliusBairaktaris/openwrt-ppe-nss
   UPSTREAM_REF: ppe-flow-offload
   TAG: ppe-offload-test
   # No overlay files for this flavour; VARIANT picks files.<variant> and

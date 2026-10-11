@@ -15,7 +15,7 @@ MX4300 and MR7350, GL.iNet GL-AX1800 Flint and Dynalink DL-WRX36. The images
 run OpenWrt main's upstream `qca_edma`/`qca_ppe` drivers and use only
 in-kernel offload interfaces: no ECM, no NSS qdiscs and no vendor NSS host
 driver. They are built by GitHub Actions from the `ppe-nss` branch of
-[openwrt-nss-edma](https://github.com/JuliusBairaktaris/openwrt-nss-edma);
+[openwrt-ppe-nss](https://github.com/JuliusBairaktaris/openwrt-ppe-nss);
 only the NSS firmware comes from
 [nss-packages](https://github.com/JuliusBairaktaris/nss-packages).
 
@@ -27,8 +27,8 @@ only the NSS firmware comes from
 > [Coming from edma-nss](#coming-from-edma-nss).
 
 Background and design are in the
-[wiki](https://github.com/JuliusBairaktaris/openwrt-nss-edma/wiki), starting
-with [NSS Offload Explained](https://github.com/JuliusBairaktaris/openwrt-nss-edma/wiki/NSS-Offload-Explained).
+[wiki](https://github.com/JuliusBairaktaris/openwrt-ppe-nss/wiki), starting
+with [PPE and NSS Wi-Fi Offload](https://github.com/JuliusBairaktaris/openwrt-ppe-nss/wiki/PPE-and-NSS-Wi-Fi-Offload).
 
 ## Install
 
@@ -120,7 +120,7 @@ Fork this repo and edit the `env:` block of
 [build.yml](.github/workflows/build.yml), or build locally:
 
 ```sh
-git clone --branch ppe-nss https://github.com/JuliusBairaktaris/openwrt-nss-edma openwrt
+git clone --branch ppe-nss https://github.com/JuliusBairaktaris/openwrt-ppe-nss openwrt
 cd openwrt
 cp feeds.conf.default feeds.conf
 echo "src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss" >> feeds.conf
