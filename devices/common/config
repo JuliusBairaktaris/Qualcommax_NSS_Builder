@@ -115,6 +115,7 @@ CONFIG_PACKAGE_kmod-sched-gred=y
 CONFIG_PACKAGE_dcb=y
 CONFIG_PACKAGE_ethtool-full=y
 CONFIG_PACKAGE_devlink=y
+CONFIG_KERNEL_DCB=y
 
 ## Routed multicast needs the mroute options and a userspace daemon to fill
 ## the kernel MFC. Not bundled - add igmpproxy (or smcroute) in your fork if

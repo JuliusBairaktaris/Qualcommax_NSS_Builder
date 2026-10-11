@@ -29,8 +29,7 @@ env:
   UPSTREAM_REPO: JuliusBairaktaris/openwrt-ppe-nss
   UPSTREAM_REF: ppe-flow-offload
   TAG: ppe-offload-test
-  # No overlay files for this flavour; VARIANT picks files.<variant> and
-  # patches/feeds/<variant>.
+  # VARIANT picks files.<variant> and patches/feeds/<variant>.
   VARIANT: ppe
   COMMON: common-ppe
   # The luci feed comes from the fork carrying luci-app-ppe-qos (openwrt/luci
