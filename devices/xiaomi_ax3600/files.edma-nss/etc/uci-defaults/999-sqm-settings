@@ -1,19 +1,13 @@
 #!/bin/sh
-# Provision an NSS SQM (nss-edma.qos) template. Create the sqm.wan section
-# only if absent (so user-tuned settings survive sysupgrade) and remove the
-# legacy bogus sqm.eth1 section (it was named 'eth1' but pointed at interface
-# 'wan' and carried no download/upload rates, so it shaped nothing and produced
-# a spurious second SQM start at boot).
+# Provision a hardware SQM (hw_ppe.qos, the PPE port shaper) template. Create
+# the sqm.wan section only if absent, so user-tuned settings survive
+# sysupgrade. A section still on the removed nss-edma.qos script is moved to
+# hw_ppe.qos with its rates kept.
 #
 # The section ships DISABLED: a shaper is only correct at ~90-95% of the rate
-# YOUR line actually delivers, so there is no safe universal default — an
-# enabled default caps everyone with a faster link at these example rates.
-# To use it, set download/upload to your measured line rates (kbit/s, e.g. a
-# 300/150 Mbit line that delivers ~337/170 gross runs bloat-free at
-# 335000/165000) and set enabled='1' (or configure it in LuCI > Network > SQM).
-# Egress keeps a tight CoDel (20ms interval + 150p limit) as the backstop for
-# traffic without an upload IGS tree (Wi-Fi clients); the per-port IGS trees
-# (igs_upload) give wired upload true per-flow isolation.
+# YOUR line actually delivers, so there is no safe universal default. Set
+# download/upload to your measured line rates (kbit/s) and enabled='1', or
+# configure it in LuCI > Network > SQM.
 if [ -z "$(uci -q get sqm.wan)" ]; then
 	uci -q batch <<-EOI
 		set sqm.wan=queue
@@ -22,26 +16,11 @@ if [ -z "$(uci -q get sqm.wan)" ]; then
 		set sqm.wan.download='335000'
 		set sqm.wan.upload='165000'
 		set sqm.wan.qdisc='fq_codel'
-		set sqm.wan.script='nss-edma.qos'
+		set sqm.wan.script='hw_ppe.qos'
 		set sqm.wan.linklayer='none'
-		set sqm.wan.qdisc_advanced='1'
-		set sqm.wan.qdisc_really_really_advanced='1'
-		set sqm.wan.itarget='4ms'
-		set sqm.wan.etarget='4ms'
-		set sqm.wan.iqdisc_opts='interval 50ms quantum 304'
-		set sqm.wan.eqdisc_opts='interval 20ms quantum 304'
-		set sqm.wan.elimit='150'
-		set sqm.wan.igs_upload='lan1 lan2 lan3'
 	EOI
-fi
-# Remove the legacy builder-shipped sqm.eth1 only while it is still the
-# rate-less husk (without rates it never shaped anything, it just caused a
-# spurious second SQM start at boot). A section the user gave rates to is
-# their configuration — a settings-preserving sysupgrade must never touch it.
-if [ -n "$(uci -q get sqm.eth1)" ] \
-   && [ -z "$(uci -q get sqm.eth1.download)" ] \
-   && [ -z "$(uci -q get sqm.eth1.upload)" ]; then
-	uci -q delete sqm.eth1
+elif [ "$(uci -q get sqm.wan.script)" = "nss-edma.qos" ]; then
+	uci -q set sqm.wan.script='hw_ppe.qos'
 fi
 uci -q commit sqm
 exit 0

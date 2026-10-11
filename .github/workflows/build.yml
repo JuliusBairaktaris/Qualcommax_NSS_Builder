@@ -26,14 +26,18 @@ permissions:
 
 env:
   UPSTREAM_REPO: JuliusBairaktaris/openwrt-nss-edma
-  UPSTREAM_REF: nss-edma-rework
+  UPSTREAM_REF: ppe-nss
   NSS_REPO: JuliusBairaktaris/nss-packages
   NSS_REF: edma-nss
   VARIANT: edma-nss
   RELEASE_PREFIX: edma-nss
   MESH_RELEASE_PREFIX: edma-nss-mesh
   KEEP: "2"                     # newest releases to retain, per prefix
-  FEEDS: "src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss"
+  # nss-firmware, and the luci fork carrying luci-app-ppe-qos (openwrt/luci
+  # PR 8965), which prepare-build.sh swaps in for the default luci feed.
+  FEEDS: |
+    src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss
+    src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos
 
 jobs:
   check:
@@ -110,11 +114,10 @@ jobs:
               echo "- **Trigger**: \`${GITHUB_EVENT_NAME}\`"
               echo
               if [[ "$prefix" == "$MESH_RELEASE_PREFIX" ]]; then
-                echo "**802.11s mesh offload build.** Same stack as the \`${VARIANT}\`"
-                echo "release of the same date, on NSS firmware 11.4.0.5 — the last"
-                echo "firmware line that accepts a mesh interface — with the ath11k mesh"
-                echo "path/proxy-path offload compiled in. Take this one only if you run"
-                echo "802.11s; the \`${VARIANT}\` release carries the newer 12.5 firmware."
+                echo "**802.11s mesh build.** Same stack as the \`${VARIANT}\` release of"
+                echo "the same date, on NSS firmware 11.4.0.5 - the last firmware line that"
+                echo "accepts a mesh interface. Take this one only if you run 802.11s; the"
+                echo "\`${VARIANT}\` release carries the newer 12.5 firmware."
                 echo
               fi
               echo "Pick the \`...-<your device>-squashfs-sysupgrade.bin\` asset and flash"
@@ -122,9 +125,10 @@ jobs:
               echo "there is no factory image; install stock OpenWrt first if you are not"
               echo "already running it."
               echo
-              echo "The offload comes up at boot; \`nss-status\` reports its health."
-              echo "To stay on the plain host stack instead:"
-              echo "\`uci set nss.general.enabled='0'; uci commit nss; reboot\`."
+              echo "Wired offload runs in the PPE through the fw4 flowtable, switchdev"
+              echo "and tc. The NSS Wi-Fi offload is off by default and is armed for the"
+              echo "next boot only (the flag clears itself):"
+              echo "\`uci set nss-wifi.general.offload=1; uci commit nss-wifi; reboot\`."
             } >release_notes.md
 
             # stdout is the tag; gh prints the release URL, which would

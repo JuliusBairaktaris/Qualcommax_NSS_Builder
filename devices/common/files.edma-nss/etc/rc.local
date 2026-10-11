@@ -8,8 +8,4 @@ if awk '$5 < 3071 { found = 1 } END { exit !found }' /etc/ssh/moduli; then
 	mv /etc/ssh/moduli.safe /etc/ssh/moduli
 fi
 
-# The NSS data plane is brought up by the 'nss' service (/etc/init.d/nss ->
-# /usr/sbin/nss-up); its output lands in logread. To stay on the plain host
-# stack: uci set nss.general.enabled='0'; uci commit nss (then reboot).
-
 exit 0
