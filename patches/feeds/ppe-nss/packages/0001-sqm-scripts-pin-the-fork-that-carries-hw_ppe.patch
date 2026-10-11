@@ -5,7 +5,7 @@ config, and exists only in the sqm-scripts fork - upstream sqm-scripts has
 no hardware backend. The pin is the tip of the fork's hw-ppe-offload
 branch, rebased onto upstream v1.8.0 so it carries the nftables marking
 the feed now builds against, and it pairs with the qca_ppe driver on
-ppe-offload: the driver serves priorities eight and up from a
+ppe-nss: the driver serves priorities eight and up from a
 schedulable band of their own, and the script shapes only the download
 into it, so local traffic between switch ports runs at line rate.
 

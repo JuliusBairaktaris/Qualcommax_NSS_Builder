@@ -8,5 +8,5 @@ config  text eol=lf
 *.patch text eol=lf
 
 # uci-defaults are POSIX shell scripts even without a .sh extension.
-# files* covers the variant overlay dir (files.edma-nss/) too.
+# files* covers the variant overlay dir (files.ppe-nss/) too.
 devices/*/files*/etc/uci-defaults/* text eol=lf

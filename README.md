@@ -8,14 +8,23 @@
 [![Last Commit](https://img.shields.io/github/last-commit/JuliusBairaktaris/Qualcommax_NSS_Builder?style=flat-square&label=Last%20Commit)](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/commits/main)
 [![Downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FJuliusBairaktaris%2FQualcommax_NSS_Builder%2Fstats%2Fdownloads.json&style=flat-square)](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/releases)
 
-OpenWrt sysupgrade images with NSS hardware offload (NAT, PPPoE, SQM, bridge
-and Wi-Fi) for every IPQ807x and IPQ60xx board in the `qualcommax` target,
-including the Xiaomi AX3600, Redmi AX6, Linksys MX4300 and MR7350, GL.iNet
-GL-AX1800 Flint and Dynalink DL-WRX36. The offload runs on OpenWrt main's
-upstream `qca_edma`/`qca_ppe` ethernet drivers instead of the vendor
-`qca-nss-dp`/`qca-ssdk` stack. Images are built by GitHub Actions from
-[openwrt-nss-edma](https://github.com/JuliusBairaktaris/openwrt-nss-edma) and
+OpenWrt sysupgrade images with PPE and NSS hardware offload (NAT, PPPoE,
+VLAN, SQM, bridge, multicast and Wi-Fi) for every IPQ807x and IPQ60xx board in
+the `qualcommax` target, including the Xiaomi AX3600, Redmi AX6, Linksys
+MX4300 and MR7350, GL.iNet GL-AX1800 Flint and Dynalink DL-WRX36. The images
+run OpenWrt main's upstream `qca_edma`/`qca_ppe` drivers and use only
+in-kernel offload interfaces: no ECM, no NSS qdiscs and no vendor NSS host
+driver. They are built by GitHub Actions from the `ppe-nss` branch of
+[openwrt-nss-edma](https://github.com/JuliusBairaktaris/openwrt-nss-edma);
+only the NSS firmware comes from
 [nss-packages](https://github.com/JuliusBairaktaris/nss-packages).
+
+> [!NOTE]
+> The vendor NSS stack (qca-nss-drv, ECM, NSS qdiscs) is no longer built.
+> Its last `edma-nss-*` releases stay on the releases page, and its build
+> setup is the [`archive/edma-nss-final`](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/tree/archive/edma-nss-final)
+> tag. Moving from `edma-nss` to `ppe-nss` is a normal sysupgrade; see
+> [Coming from edma-nss](#coming-from-edma-nss).
 
 Background and design are in the
 [wiki](https://github.com/JuliusBairaktaris/openwrt-nss-edma/wiki), starting
@@ -36,9 +45,10 @@ OpenWrt first using its [device page](https://openwrt.org/toh/start).
 
 | Release | Use it for |
 |---|---|
-| `edma-nss-*` | The default. NSS firmware 12.5 (`NSS.FW.12.5-210-HK.R` on IPQ807x, `NSS.FW.12.5-210-CP.R` on IPQ60xx). |
-| `edma-nss-mesh-*` | 802.11s mesh offload. Same images on NSS firmware 11.4.0.5, the last line that supports mesh. |
+| `ppe-nss-*` | The default. NSS firmware 12.5 (`NSS.FW.12.5-210-HK.R` on IPQ807x, `NSS.FW.12.5-210-CP.R` on IPQ60xx). |
+| `ppe-nss-mesh-*` | 802.11s mesh. Same images on NSS firmware 11.4.0.5, the last line that supports mesh. |
 | `ppe-offload-test` | One prerelease, replaced in place. Stock OpenWrt with PPE flowtable offload and no NSS, for testing only. |
+| `edma-nss-*` | Archived vendor NSS stack. No longer built or updated. |
 
 Wi-Fi ships disabled with no key. Connect by cable, set an SSID and key under
 Network → Wireless, and enable the radios.
@@ -46,8 +56,7 @@ Network → Wireless, and enable the radios.
 <details>
 <summary>Devices built: 41 IPQ807x, 24 IPQ60xx</summary>
 
-Boards are grouped by subtarget and ath11k memory profile, which are both
-image-wide build options.
+Boards are grouped by subtarget and RAM.
 
 | Group | RAM | Devices |
 |---|---|---|
@@ -68,42 +77,42 @@ node.
 
 ## Status and recovery
 
-`nss-status` over ssh, or LuCI Status → NSS Offload, shows the offload state.
-Boot messages are in `logread -e nss`. To run the plain host stack instead:
+The wired offload is the fw4 flowtable, switched on at first boot (Network →
+Firewall → hardware flow offloading). `grep -c HW_OFFLOAD /proc/net/nf_conntrack`
+counts the flows in the PPE.
+
+The NSS Wi-Fi offload is on by default. Turn it off with:
 
 ```sh
-uci set nss.general.enabled='0'; uci commit nss; reboot
+uci set nss-wifi.general.offload='0'; uci commit nss-wifi; reboot
 ```
 
-The setting survives sysupgrade.
+The flag is cleared while the offload starts and set again two minutes after
+the firmware has taken the data plane, so a boot that hangs falls back to the
+host Wi-Fi path on the next boot. `logread -e nss-wifi` shows the bring-up.
+
+## Coming from edma-nss
+
+Upgrade with a normal sysupgrade; settings may be kept. The `nss` and
+`nssqos` configs are no longer read. On the Xiaomi AX3600 image the `sqm.wan`
+section is moved from `nss-edma.qos` to `hw_ppe.qos`; on other boards set the
+SQM script to `hw_ppe.qos` in LuCI. `nssqos` DSCP rules are not carried over;
+set up queue classifiers under Network → PPE QoS.
 
 ## What ships
 
 | Area | Packages |
 |---|---|
-| NSS core | `kmod-qca-nss-drv`, firmware memory profile matched to RAM |
-| NAT offload | ECM (IPv4 NAT, IPv6 routing), PPPoE |
-| Bridge, multicast | `kmod-qca-nss-drv-bridge-mgr`, `kmod-qca-nss-ecm` |
-| SQM | NSS qdiscs with `sqm-scripts-nss` and `luci-app-sqm`, shipped disabled; set your line rates and enable it |
-| QoS marking | `nssqos`, `luci-app-nssqos` (DSCP rules for offloaded flows) |
-| Wi-Fi | ath11k NSS offload (wifili) |
-| Diagnostics | `nss-status`, `luci-app-nss`, `nssinfo` |
+| Routing, NAT | PPE through the fw4 flowtable: IPv4/IPv6, NAT, PPPoE, 802.1Q VLAN |
+| Bridge, multicast | PPE through switchdev, with multicast snooping |
+| SQM | PPE shaper through tc qdisc offload: `hw_ppe.qos` in `sqm-scripts`, `luci-app-sqm` |
+| QoS classes | `ppe-qos`, `luci-app-ppe-qos` (queue classifiers) |
+| Wi-Fi | `kmod-nss-wifi-drv`: the ath11k data path on the NSS cores, on by default |
 | Base | OpenSSH instead of Dropbear, OpenSSL, LuCI over HTTPS, BCP38, `htop`, `iperf3`, `curl` |
 | Toolchain | GCC 15, Binutils 2.46, mold, LTO, PIE/SSP/FORTIFY_SOURCE=3/RELRO |
 
-Routed multicast (IPTV), MAP-T, VXLAN, MACVLAN and GRE build but are off by
-default. [docs/CUSTOMIZE.md](docs/CUSTOMIZE.md) shows how to enable them.
-
-## Measured results
-
-Xiaomi AX3600, NSS firmware 12.5, kernel 6.18:
-
-| Metric | Host path | NSS offload |
-|---|---|---|
-| 311 Mbit/s PPPoE NAT | ~42 % of one core (softirq) | ~99.7 % CPU idle |
-| SQM at 285 Mbit/s ingress | CPU-bound | 258 Mbit/s goodput, ~99 % idle |
-| RTT under shaped load | bufferbloat | 16 ms avg vs 20 ms idle |
-| Wi-Fi data path | mac80211/ath11k on the CPU | wifili on the NSS cores |
+Routed multicast (IPTV) needs a multicast routing daemon, which is not
+bundled. [docs/CUSTOMIZE.md](docs/CUSTOMIZE.md) shows how to add one.
 
 ## Build it yourself
 
@@ -111,22 +120,23 @@ Fork this repo and edit the `env:` block of
 [build.yml](.github/workflows/build.yml), or build locally:
 
 ```sh
-git clone --branch nss-edma-rework https://github.com/JuliusBairaktaris/openwrt-nss-edma openwrt
+git clone --branch ppe-nss https://github.com/JuliusBairaktaris/openwrt-nss-edma openwrt
 cd openwrt
 cp feeds.conf.default feeds.conf
 echo "src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss" >> feeds.conf
+sed -i 's|^src-git luci .*|src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos|' feeds.conf
 ./scripts/feeds update -a && ./scripts/feeds install -a
-B=../Qualcommax_NSS_Builder/devices
-cat "$B/common/config" "$B/xiaomi_ax3600/config" > .config   # or any devices/<group>
+B=../Qualcommax_NSS_Builder
+patch -d feeds/packages -p1 < "$B"/patches/feeds/ppe-nss/packages/0001-*.patch   # hw_ppe.qos
+cat "$B/devices/common/config" "$B/devices/xiaomi_ax3600/config" > .config   # or any devices/<group>
 make defconfig && make -j"$(nproc)"
 ```
 
 > [!IMPORTANT]
-> `nss-edma-rework` and the `edma-nss` feed are rebased regularly, so
-> `git pull` and `./scripts/feeds update` do not update them. Use:
+> `ppe-nss` is rebased regularly, so `git pull` does not update it. Use:
 >
 > ```sh
-> git fetch origin && git reset --hard origin/nss-edma-rework
+> git fetch origin && git reset --hard origin/ppe-nss
 > rm -rf feeds/nss package/feeds/nss
 > ./scripts/feeds update -a && ./scripts/feeds install -a
 > make defconfig

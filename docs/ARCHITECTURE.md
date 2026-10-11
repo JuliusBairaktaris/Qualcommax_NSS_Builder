@@ -19,9 +19,8 @@ flowchart LR
 
 ## Why one release for all groups?
 
-The ath11k memory profile is a compile-time choice that applies to the whole
-image, so boards can only share a build when they share a profile — hence one
-matrix job per profile group. That is a build-side constraint, not something a
+Boards are built in groups by subtarget and RAM, one matrix job per group.
+That is a build-side split, not something a
 user should have to know about: one release holds every device's images, and
 `publish` is what keeps it all-or-nothing. A partial set would read as "this
 device is not supported" when it only means one group's compile broke, and a
@@ -30,8 +29,7 @@ draft left behind is never pruned.
 The mesh flavour is a second release rather than more assets in that one, on
 the same reasoning read the other way: it is the same device set built against
 a different NSS firmware line, so its images share the group names and would
-collide. Which firmware a device wants is a choice the user makes, unlike its
-memory profile, so it is the one split that belongs in front of them.
+collide. Which firmware a device wants is a choice the user makes, so it is the one split that belongs in front of them.
 
 ## Why split into jobs?
 
@@ -50,7 +48,7 @@ ccache is also disabled (`# CONFIG_CCACHE is not set` in the config) since it's 
 ## Reproducibility note
 
 `SOURCE_DATE_EPOCH` is taken from the checked-out upstream commit (`git show -s --format=%ct HEAD`).
-The image is intentionally *current* (latest `nss-edma-rework` head each build), so the SHA is pinned
+The image is intentionally *current* (latest `ppe-nss` head each build), so the SHA is pinned
 per build but the tip moves as upstream does — that is the documented trade-off for "refresh on build".
 
 ## Why an `env:` block instead of a config file?

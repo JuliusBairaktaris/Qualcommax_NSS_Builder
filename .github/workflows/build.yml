@@ -1,9 +1,11 @@
 name: Build
 
-# Builds the edma-nss images for every ipq807x and ipq60xx device, in six
+# Builds the ppe-nss images for every ipq807x and ipq60xx device, in six
 # groups and two flavours (default, and mesh on the 11.4 firmware line):
 #   check (upstream moved?) -> draft release -> build each group -> publish -> prune
 # All build parameters live in the `env:` block below and in devices/<group>/config.
+# The vendor NSS stack (edma-nss releases) was last built from the
+# archive/edma-nss-final tag of this repo.
 on:
   workflow_dispatch:
   push:
@@ -29,9 +31,9 @@ env:
   UPSTREAM_REF: ppe-nss
   NSS_REPO: JuliusBairaktaris/nss-packages
   NSS_REF: edma-nss
-  VARIANT: edma-nss
-  RELEASE_PREFIX: edma-nss
-  MESH_RELEASE_PREFIX: edma-nss-mesh
+  VARIANT: ppe-nss
+  RELEASE_PREFIX: ppe-nss
+  MESH_RELEASE_PREFIX: ppe-nss-mesh
   KEEP: "2"                     # newest releases to retain, per prefix
   # nss-firmware, and the luci fork carrying luci-app-ppe-qos (openwrt/luci
   # PR 8965), which prepare-build.sh swaps in for the default luci feed.
@@ -126,9 +128,8 @@ jobs:
               echo "already running it."
               echo
               echo "Wired offload runs in the PPE through the fw4 flowtable, switchdev"
-              echo "and tc. The NSS Wi-Fi offload is off by default and is armed for the"
-              echo "next boot only (the flag clears itself):"
-              echo "\`uci set nss-wifi.general.offload=1; uci commit nss-wifi; reboot\`."
+              echo "and tc. The NSS Wi-Fi offload is on by default; turn it off with"
+              echo "\`uci set nss-wifi.general.offload=0; uci commit nss-wifi; reboot\`."
             } >release_notes.md
 
             # stdout is the tag; gh prints the release URL, which would
