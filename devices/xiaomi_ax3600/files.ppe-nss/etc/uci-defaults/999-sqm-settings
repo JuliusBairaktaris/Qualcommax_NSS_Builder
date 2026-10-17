@@ -1,8 +1,7 @@
 #!/bin/sh
 # Provision a hardware SQM (hw_ppe.qos, the PPE port shaper) template. Create
 # the sqm.wan section only if absent, so user-tuned settings survive
-# sysupgrade. A section still on the removed nss-edma.qos script is moved to
-# hw_ppe.qos with its rates kept.
+# sysupgrade.
 #
 # The section ships DISABLED: a shaper is only correct at ~90-95% of the rate
 # YOUR line actually delivers, so there is no safe universal default. Set
@@ -19,8 +18,6 @@ if [ -z "$(uci -q get sqm.wan)" ]; then
 		set sqm.wan.script='hw_ppe.qos'
 		set sqm.wan.linklayer='none'
 	EOI
-elif [ "$(uci -q get sqm.wan.script)" = "nss-edma.qos" ]; then
-	uci -q set sqm.wan.script='hw_ppe.qos'
 fi
 uci -q commit sqm
 exit 0
