@@ -26,8 +26,9 @@ How the offload works, how to check it and what is not covered is in the
 
 ## Install
 
-Download `openwrt-qualcommax-<subtarget>-<board>-squashfs-sysupgrade.bin`
-from a [release](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/releases)
+Pick your router in the [image picker](https://ppenss.github.io/),
+or download `openwrt-qualcommax-<subtarget>-<board>-squashfs-sysupgrade.bin`
+from a [release](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/releases),
 and flash it in LuCI (System → Backup / Flash Firmware) or over ssh:
 
 ```sh
@@ -101,7 +102,17 @@ apk update && apk add kmod-<name>
 ```
 
 The feed belongs to the release the image came from and is removed with it.
-After a sysupgrade the image points at its new feed.
+After a sysupgrade the image points at its new feed. The image picker lists
+the modules of each release.
+
+## Custom images
+
+The [image picker](https://ppenss.github.io/)
+builds an image with packages added or left out and an optional first-boot
+script. The request opens as an issue here; the `Custom image` workflow
+builds it from the release's ImageBuilder and posts the download on the
+issue. Custom downloads are deleted after seven days. Packages that the
+release did not build come from the OpenWrt snapshot feeds.
 
 ## Updates
 

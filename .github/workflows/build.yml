@@ -31,6 +31,10 @@ env:
   UPSTREAM_REF: ppe-nss
   NSS_REPO: JuliusBairaktaris/nss-packages
   NSS_REF: edma-nss
+  # The picker and the feeds move here once the PAGES_DEPLOY_KEY secret holds
+  # a deploy key with write access to PAGES_REPO.
+  PAGES_REPO: ppenss/ppenss.github.io
+  PAGES_URL: https://ppenss.github.io
   VARIANT: ppe-nss
   RELEASE_PREFIX: ppe-nss
   KEEP: "2"                     # newest releases to retain, per prefix
@@ -198,6 +202,7 @@ jobs:
         working-directory: openwrt
         env:
           APK_SIGN_KEY: ${{ secrets.APK_SIGN_KEY }}
+          PAGES_DEPLOY_KEY: ${{ secrets.PAGES_DEPLOY_KEY }}
           OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
         run: |
@@ -208,6 +213,7 @@ jobs:
           # The OpenWrt target feed serves another kernel's modules; this
           # build's own target packages replace it.
           site="https://${OWNER,,}.github.io/${REPO_NAME}"
+          [[ -z "$PAGES_DEPLOY_KEY" ]] || site="$PAGES_URL"
           url="${site}/${TAG}/${DEVICE}/packages.adb"
           mkdir -p files/etc/uci-defaults
           printf "TAG='%s'\nGROUP='%s'\nSITE='%s'\nREPO='%s'\n" \
@@ -311,6 +317,13 @@ jobs:
           [[ ${#assets[@]} -gt 0 ]] || { echo "::error::no sysupgrade images in $out"; exit 1; }
           grep 'sysupgrade.bin' "$out/sha256sums" >"sha256sums-${DEVICE}.txt"
           cp "$out/config.buildinfo" "config-${DEVICE}.buildinfo"
+          # The ImageBuilder and the overlay files are what custom.yml builds
+          # a picked package set from.
+          ib=$(find "$out" -maxdepth 1 -name 'openwrt-imagebuilder-*.tar.zst')
+          [[ -f "$ib" ]] || { echo "::error::no ImageBuilder in $out"; exit 1; }
+          mv "$ib" "imagebuilder-${DEVICE}.tar.zst"
+          tar -C openwrt/files -czf "files-${DEVICE}.tar.gz" .
+          assets+=("imagebuilder-${DEVICE}.tar.zst" "files-${DEVICE}.tar.gz")
 
           # --clobber, so re-running a job that died mid-upload is a recovery
           # and not a permanent "asset already exists".
@@ -337,6 +350,8 @@ jobs:
           [[ -s "$pkgs/packages.adb" ]] || { echo "::error::no packages.adb in $pkgs"; exit 1; }
           mkdir -p "feed/$TAG"
           mv "$pkgs" "feed/$TAG/$DEVICE"
+          out=$(dirname "$pkgs")
+          cp "$out/profiles.json" "$out"/*.manifest "feed/$TAG/$DEVICE/"
           echo "- feed: $(find "feed/$TAG/$DEVICE" -name '*.apk' | wc -l) packages, $(du -sh "feed/$TAG/$DEVICE" | cut -f1)" >>"$GITHUB_STEP_SUMMARY"
 
       - name: Upload kmod feed
@@ -391,45 +406,33 @@ jobs:
           PREFIX="$RELEASE_PREFIX" bash scripts/prune-releases.sh
 
   feed:
-    name: Publish kmod feeds
+    name: Publish kmod feeds and the image picker
     needs: [release, prune]
     runs-on: ubuntu-26.04
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     timeout-minutes: 20
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: ${{ needs.release.outputs.tag }}
     steps:
+      - uses: actions/checkout@v7
+
       - uses: actions/download-artifact@v8
         with:
           pattern: feed-*
           merge-multiple: true
           path: new
 
-      # gh-pages holds one directory per release tag and lives as long as the
-      # release. One orphan commit, so pruned feeds leave the repository too.
+      # gh-pages holds the picker and one directory per release tag, which
+      # lives as long as the release. One orphan commit, so pruned feeds leave
+      # the repository too.
       - name: Push to gh-pages
-        run: |
-          set -euo pipefail
-          url="https://github.com/$GITHUB_REPOSITORY"
-          if git ls-remote --exit-code --heads "$url" gh-pages >/dev/null; then
-            git clone -q --depth 1 --branch gh-pages "$url" site
-          else
-            git init -q -b gh-pages site
-          fi
-          mapfile -t keep < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName')
-          shopt -s nullglob
-          for d in site/*/; do
-            printf '%s\n' "${keep[@]}" | grep -qxF "$(basename "$d")" || rm -rf "$d"
-          done
-          cp -a new/. site/
-          touch site/.nojekyll
-
-          cd site
-          git checkout -q --orphan feeds
-          git add -A
-          git -c user.name="github-actions[bot]" \
-            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit -q -m "Publish the kmod feeds of $TAG"
-          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" feeds:gh-pages
+        env:
+          REPO: ${{ github.repository }}
+          PREFIX: ${{ env.RELEASE_PREFIX }}
+          NEW_DIR: new
+          PAGES_DEPLOY_KEY: ${{ secrets.PAGES_DEPLOY_KEY }}
+        run: bash scripts/publish-site.sh
