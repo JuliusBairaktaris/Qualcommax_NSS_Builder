@@ -1,0 +1,142 @@
+name: Custom image
+
+# Builds the package set an image picker request asks for, from the
+# ImageBuilder of the release it names, and posts the image on the issue.
+#   issue "[build] ..." -> parse + validate -> make image -> prerelease custom-<issue> -> comment, close
+# Custom prereleases are deleted after KEEP_DAYS.
+on:
+  issues:
+    types: [opened]
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  KEEP_DAYS: "7"
+
+jobs:
+  build:
+    name: Build custom image
+    if: github.event_name == 'issues' && startsWith(github.event.issue.title, '[build]')
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    concurrency:
+      group: custom-${{ github.event.issue.number }}
+    permissions:
+      contents: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE: ${{ github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Parse the request
+        id: req
+        env:
+          SITE_URL: https://ppenss.github.io
+          UCI_DEFAULTS_OUT: ${{ runner.temp }}/99-custom
+        run: |
+          set -euo pipefail
+          python3 scripts/custom-request.py
+
+      - name: Fetch the ImageBuilder
+        env:
+          TAG: ${{ steps.req.outputs.tag }}
+          GROUP: ${{ steps.req.outputs.group }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            -p "imagebuilder-${GROUP}.tar.zst" -p "files-${GROUP}.tar.gz" -D "$RUNNER_TEMP"
+          mkdir ib
+          tar -C ib --strip-components=1 -xf "$RUNNER_TEMP/imagebuilder-${GROUP}.tar.zst"
+          mkdir -p ib/files
+          tar -C ib/files -xzf "$RUNNER_TEMP/files-${GROUP}.tar.gz"
+          if [[ -f "$RUNNER_TEMP/99-custom" ]]; then
+            install -D -m 0755 "$RUNNER_TEMP/99-custom" ib/files/etc/uci-defaults/99-custom
+          fi
+          # Everything the release built is local; packages it did not build
+          # come from the OpenWrt snapshot feeds.
+          arch=$(sed -n 's/^CONFIG_TARGET_ARCH_PACKAGES="\(.*\)"/\1/p' ib/.config)
+          for feed in packages luci routing telephony video; do
+            echo "https://downloads.openwrt.org/snapshots/packages/${arch}/${feed}/packages.adb" >>ib/repositories
+          done
+
+      - name: Build the image
+        working-directory: ib
+        env:
+          PROFILE: ${{ steps.req.outputs.profile }}
+          PACKAGES: ${{ steps.req.outputs.packages }}
+        run: |
+          set -euo pipefail
+          make image PROFILE="$PROFILE" PACKAGES="$PACKAGES" FILES=files \
+            EXTRA_IMAGE_NAME="custom${ISSUE}" BIN_DIR="$GITHUB_WORKSPACE/out"
+          ls -l "$GITHUB_WORKSPACE/out"
+
+      - name: Publish and answer
+        env:
+          TAG: ${{ steps.req.outputs.tag }}
+          TITLE: ${{ steps.req.outputs.title }}
+          SUMMARY: ${{ steps.req.outputs.summary }}
+        run: |
+          set -euo pipefail
+          cd out
+          mapfile -t imgs < <(find . -maxdepth 1 -name '*-squashfs-sysupgrade.bin' -printf '%f\n')
+          [[ ${#imgs[@]} -eq 1 ]] || { echo "::error::expected one sysupgrade image"; exit 1; }
+          sha256sum "${imgs[0]}" >sha256sums
+          rel="custom-${ISSUE}-${GITHUB_RUN_ID}"
+          gh release create "$rel" --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
+            --title "Custom image #${ISSUE} (${TITLE})" \
+            --notes "Built from ${TAG} for #${ISSUE}: ${SUMMARY}. Deleted after ${KEEP_DAYS} days." \
+            "${imgs[0]}" sha256sums ./*.manifest
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${rel}"
+          {
+            echo "Your image for **${TITLE}** is ready (${SUMMARY}, from \`${TAG}\`):"
+            echo
+            echo "- [${imgs[0]}](${base}/${imgs[0]})"
+            echo "- sha256 \`$(cut -d' ' -f1 sha256sums)\`"
+            echo "- [package manifest](${base}/$(find . -maxdepth 1 -name '*.manifest' -printf '%f\n' | head -n1))"
+            echo
+            echo "Flash it with sysupgrade over an existing OpenWrt install. The download goes away after ${KEEP_DAYS} days."
+            echo "Later updates: LuCI System > Firmware update, or \`ppe-update check\`; packages you added are installed again after each update."
+          } >comment.md
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body-file comment.md
+          gh issue close "$ISSUE" --repo "$GITHUB_REPOSITORY" --reason completed
+
+      - name: Report a failure
+        if: failure()
+        env:
+          ERROR: ${{ steps.req.outputs.error }}
+        run: |
+          set -euo pipefail
+          run="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [[ -n "$ERROR" ]]; then
+            msg="The request was not built: ${ERROR}"
+          else
+            msg="The build failed. The log is at ${run}; a package that does not exist or conflicts is the usual cause."
+          fi
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body "$msg"
+          gh issue close "$ISSUE" --repo "$GITHUB_REPOSITORY" --reason "not planned"
+
+  prune:
+    name: Delete old custom images
+    if: github.event_name != 'issues'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - run: |
+          set -euo pipefail
+          cutoff=$(date -u -d "-${KEEP_DAYS} days" +%s)
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName,createdAt \
+            --jq '.[] | select(.tagName | startswith("custom-")) | "\(.tagName) \(.createdAt)"' |
+            while read -r tag created; do
+              [[ $(date -u -d "$created" +%s) -lt $cutoff ]] || continue
+              gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+            done

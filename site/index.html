@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ppe-nss Firmware</title>
+<meta name="description" content="Download or build OpenWrt ppe-nss images for IPQ807x and IPQ60xx routers, with their kernel module feed and automatic updates.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-row">
+    <h1>ppe-nss firmware</h1>
+    <a class="btn sponsor" href="https://github.com/sponsors/JuliusBairaktaris" target="_blank" rel="noopener">♥ Sponsor</a>
+    <label class="release">
+      <span>Release</span>
+      <select id="release" aria-label="Release"></select>
+    </label>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card" id="find">
+    <label for="search" class="h2">Find your router</label>
+    <input id="search" type="search" placeholder="Model, for example AX3600 or MX4300" autocomplete="off" spellcheck="false">
+    <ul id="results" class="results" role="listbox"></ul>
+    <p id="status" class="muted"></p>
+  </section>
+
+  <section class="card hidden" id="device">
+    <div class="device-head">
+      <div>
+        <h2 id="dev-title"></h2>
+        <p class="muted" id="dev-meta"></p>
+      </div>
+      <a id="dev-download" class="btn primary" href="#">Download sysupgrade image</a>
+    </div>
+    <dl class="facts">
+      <dt>File</dt><dd id="dev-file" class="mono"></dd>
+      <dt>SHA-256</dt><dd><button class="linkish mono" id="dev-sha" title="Copy"></button></dd>
+    </dl>
+    <p class="muted">Flash it with sysupgrade over an existing OpenWrt install (LuCI System &gt; Backup / Flash firmware). There is no factory image; install stock OpenWrt first.</p>
+  </section>
+
+  <section class="card hidden" id="custom">
+    <h2>Customize</h2>
+    <p class="muted">Add or leave out packages and add a first-boot script. The request opens as a GitHub issue (a GitHub account is needed); the image is built from this release and linked there in about 10 minutes.</p>
+
+    <h3>Add packages</h3>
+    <div class="adder">
+      <input id="add-input" list="add-suggest" placeholder="Package name, for example kmod-wireguard" autocomplete="off" spellcheck="false">
+      <button class="btn" id="add-btn" type="button">Add</button>
+    </div>
+    <datalist id="add-suggest"></datalist>
+    <ul id="added" class="chips"></ul>
+
+    <details>
+      <summary>Packages in the image (<span id="base-count">0</span>). Tap one to leave it out.</summary>
+      <input id="base-filter" type="search" placeholder="Filter" autocomplete="off" spellcheck="false">
+      <ul id="base" class="chips small"></ul>
+    </details>
+
+    <h3><label for="script">First-boot script</label></h3>
+    <textarea id="script" rows="5" spellcheck="false" placeholder="uci set system.@system[0].hostname='router'&#10;uci commit system"></textarea>
+    <p class="muted">Runs once as /etc/uci-defaults/99-custom. The request is public: no passwords or keys.</p>
+
+    <div class="actions">
+      <button class="btn primary" id="request" type="button">Request build</button>
+      <span id="request-note" class="muted"></span>
+    </div>
+  </section>
+
+  <section class="card hidden" id="feed">
+    <h2>Kernel modules</h2>
+    <p class="muted">Every kernel module of this release, built with its kernel. The image already points at this feed:</p>
+    <pre class="code"><code>apk update &amp;&amp; apk add kmod-&lt;name&gt;</code></pre>
+    <p class="muted">Feed: <a id="feed-url" class="mono" href="#"></a></p>
+    <input id="kmod-filter" type="search" placeholder="Search modules" autocomplete="off" spellcheck="false">
+    <ul id="kmods" class="kmods"></ul>
+  </section>
+
+  <section class="card" id="updates">
+    <h2>Updates</h2>
+    <p>Images from this page update themselves to the newest release, keeping settings and every package you added:</p>
+    <ul class="plain">
+      <li>LuCI: <b>System &gt; Firmware update</b>, then <b>Update now</b>, or turn on <b>Update automatically</b>.</li>
+      <li>Shell: <code>ppe-update check</code> and <code>ppe-update update</code>.</li>
+      <li>Automatic, once a day at 04:00, a release at least a day old:<br><code>uci set ppe-update.main.auto=1; uci commit ppe-update; /etc/init.d/ppe-update reload</code></li>
+    </ul>
+  </section>
+</main>
+
+<footer class="wrap muted foot">
+  <a id="repo-link" href="#">Builder repository</a> ·
+  <a href="https://github.com/sponsors/JuliusBairaktaris">Sponsor this work</a> · Images are OpenWrt snapshots with the ppe-nss offload; no warranty.
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

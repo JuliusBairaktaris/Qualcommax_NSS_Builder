@@ -32,6 +32,10 @@ CONFIG_ZLIB_OPTIMIZE_SPEED=y
 ## Every kernel module, published as the image's apk feed: the kernel's
 ## vermagic depends on the selected modules, so only this build can serve them.
 CONFIG_ALL_KMODS=y
+## An ImageBuilder holding every package of this build, which the image
+## picker's custom builds (custom.yml) run from.
+CONFIG_IB=y
+CONFIG_IB_STANDALONE=y
 
 ## Kernel Build Options
 CONFIG_BUILD_PATENTED=y

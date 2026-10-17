@@ -1,0 +1,39 @@
+name: Custom image
+description: Build an image with your own package set. The image picker fills this in.
+title: "[build] "
+labels: [custom-build]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use the [image picker](https://ppenss.github.io/) to fill this in.
+        Submitting starts the build; the download links are posted here in about 10 minutes and the issue closes.
+        Images and this request are public. Do not put passwords or keys in the first-boot script.
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      description: "<group>/<profile>, for example xiaomi_ax3600/xiaomi_ax3600"
+    validations:
+      required: true
+  - type: input
+    id: release
+    attributes:
+      label: Release
+      description: Release tag to build from. Empty builds from the newest release.
+  - type: textarea
+    id: add
+    attributes:
+      label: Add packages
+      description: Package names separated by spaces or new lines.
+  - type: textarea
+    id: remove
+    attributes:
+      label: Remove packages
+      description: Packages of the default image to leave out.
+  - type: textarea
+    id: script
+    attributes:
+      label: First-boot script (uci-defaults)
+      description: Runs once on the first boot of the image, as /etc/uci-defaults/99-custom.
+      render: shell
