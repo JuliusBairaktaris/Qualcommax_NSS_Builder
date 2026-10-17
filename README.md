@@ -91,6 +91,17 @@ The service sets the flag to `0` while the offload starts and back to `1`
 two minutes later, so a boot that hangs comes back on the host Wi-Fi path.
 `logread -e nss-wifi` shows the bring-up.
 
+## Kernel modules
+
+Each image is set up to install kernel modules built with its own kernel:
+
+```sh
+apk update && apk add kmod-<name>
+```
+
+The feed belongs to the release the image came from and is removed with it.
+After a sysupgrade the image points at its new feed.
+
 ## Coming from edma-nss
 
 Upgrade with a normal sysupgrade; settings may be kept. Then:
