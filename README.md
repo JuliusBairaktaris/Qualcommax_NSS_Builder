@@ -87,9 +87,10 @@ The NSS Wi-Fi offload is on by default. Turn it off with:
 uci set nss-wifi.general.offload='0'; uci commit nss-wifi; reboot
 ```
 
-The service sets the flag to `0` while the offload starts and back to `1`
-two minutes later, so a boot that hangs comes back on the host Wi-Fi path.
-`logread -e nss-wifi` shows the bring-up.
+While the offload starts, the service keeps a marker in
+`/etc/nss-wifi.pending` and removes it two minutes later. A boot that hangs
+leaves the marker, and the next boot stays on the host Wi-Fi path until it
+is deleted. `logread -e nss-wifi` shows the bring-up.
 
 ## Kernel modules
 
@@ -104,15 +105,15 @@ After a sysupgrade the image points at its new feed.
 
 ## Coming from edma-nss
 
-Upgrade with a normal sysupgrade; settings may be kept. Then:
+Upgrade with a normal sysupgrade; settings may be kept. Nothing is migrated
+automatically; the [migration page](https://github.com/JuliusBairaktaris/openwrt-ppe-nss/wiki/Migrating-from-edma-nss)
+has every step. In short:
 
 - Turn hardware flow offloading on in Network → Firewall. The edma-nss
   images set it to off, and the first-boot default does not override a
   kept setting.
 - The `nss` and `nssqos` configs are no longer read.
-- On the Xiaomi AX3600 image, an `sqm.wan` section on `nss-edma.qos` is
-  moved to `hw_ppe.qos`. On other boards, set the SQM script to
-  `hw_ppe.qos` in LuCI.
+- Set the SQM script to `hw_ppe.qos` in LuCI.
 - `nssqos` DSCP rules are not carried over. Set up queue classifiers under
   Network → PPE QoS.
 
