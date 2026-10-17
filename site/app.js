@@ -107,27 +107,41 @@ function renderBase() {
   updateRequest();
 }
 
-function renderAdded() {
+function renderAdded(fresh = []) {
   const list = $('added');
   list.replaceChildren();
   for (const p of state.added) {
     list.append(el('li', {}, el('button', {
-      type: 'button', textContent: `${p} ✕`, title: 'Remove',
-      onclick: () => { state.added = state.added.filter((x) => x !== p); renderAdded(); },
+      type: 'button', textContent: `${p} ✕`, title: 'Remove', className: fresh.includes(p) ? 'new' : '',
+      onclick: () => { state.added = state.added.filter((x) => x !== p); renderAdded(); note(`Removed ${p}.`); },
     })));
   }
   updateRequest();
 }
 
+function note(text, bad = false) {
+  $('add-note').textContent = text;
+  $('add-note').classList.toggle('bad', bad);
+}
+
 function addPackages(text) {
-  for (const p of text.toLowerCase().split(/[\s,]+/).filter(Boolean)) {
-    if (!/^[a-z0-9][a-z0-9+._-]{0,63}$/.test(p)) continue;
-    if (state.entry.packages.includes(p)) state.removed.delete(p);
-    else if (!state.added.includes(p)) state.added.push(p);
+  const added = [], kept = [], have = [], dup = [], bad = [];
+  for (const p of new Set(text.toLowerCase().split(/[\s,]+/).filter(Boolean))) {
+    if (!/^[a-z0-9][a-z0-9+._-]{0,63}$/.test(p)) bad.push(p);
+    else if (state.entry.packages.includes(p)) (state.removed.delete(p) ? kept : have).push(p);
+    else if (state.added.includes(p)) dup.push(p);
+    else { state.added.push(p); added.push(p); }
   }
   $('add-input').value = '';
-  renderAdded();
+  renderAdded(added);
   renderBase();
+  const msg = [];
+  if (added.length) msg.push(`Added ${added.join(', ')}.`);
+  if (kept.length) msg.push(`Kept ${kept.join(', ')} in the image.`);
+  if (have.length) msg.push(`${have.join(', ')} ${have.length > 1 ? 'are' : 'is'} already in the image.`);
+  if (dup.length) msg.push(`${dup.join(', ')} ${dup.length > 1 ? 'were' : 'was'} already added.`);
+  if (bad.length) msg.push(`Not a package name: ${bad.join(', ')}.`);
+  note(msg.join(' '), !added.length && !kept.length);
 }
 
 async function loadFeed(group) {
@@ -176,6 +190,58 @@ function issueUrl() {
   return `https://github.com/${REPO}/issues/new?${p}`;
 }
 
+// Unauthenticated API calls are limited to 60 an hour, so the tracker polls
+// slowly and falls back to the plain links when GitHub says no.
+async function api(path) {
+  const r = await fetch(`https://api.github.com/repos/${REPO}/${path}`, { headers: { Accept: 'application/vnd.github+json' } });
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const link = (href, text) => el('a', { href, textContent: text, target: '_blank', rel: 'noopener' });
+function step(id, cls, ...kids) {
+  $(id).className = cls;
+  $(id).replaceChildren(...kids);
+}
+
+let tracking = 0;
+async function track(title) {
+  const me = ++tracking, since = Date.now() - 60000, until = Date.now() + 45 * 60000;
+  $('track').classList.remove('hidden');
+  step('track-issue', '', 'Submit the issue in the tab that just opened; the build starts when it is submitted.');
+  step('track-run', '', 'Build: waiting for the issue.');
+  step('track-done', '', 'The image is posted on the issue when the build finishes.');
+  try {
+    let issue;
+    while (!issue) {
+      if (me !== tracking || Date.now() > until) return;
+      await sleep(15000);
+      const list = await api('issues?labels=custom-build&state=all&sort=created&direction=desc&per_page=10');
+      issue = list.find((i) => i.title === title && Date.parse(i.created_at) >= since);
+    }
+    step('track-issue', 'ok', 'Request ', link(issue.html_url, `#${issue.number}`), ' submitted.');
+    let run;
+    for (;;) {
+      if (me !== tracking || Date.now() > until) return;
+      const runs = await api('actions/workflows/custom.yml/runs?event=issues&per_page=10');
+      run = runs.workflow_runs.find((r) => r.display_title === issue.title && Date.parse(r.created_at) >= Date.parse(issue.created_at)) || run;
+      if (run) {
+        const done = run.status === 'completed';
+        step('track-run', done ? (run.conclusion === 'success' ? 'ok' : 'bad') : '',
+          'Build ', link(run.html_url, done ? run.conclusion : run.status.replace('_', ' ')), done ? '.' : ' (about 10 minutes).');
+        if (done) {
+          step('track-done', run.conclusion === 'success' ? 'ok' : 'bad',
+            run.conclusion === 'success' ? 'Image ready: download it from ' : 'The reason is posted on ', link(issue.html_url, `#${issue.number}`), '.');
+          return;
+        }
+      }
+      await sleep(30000);
+    }
+  } catch {
+    if (me === tracking) step('track-run', '', 'Progress is not available here right now; follow the links below.');
+  }
+}
+
 function updateRequest() {
   if (!state.entry) return;
   const changes = state.added.length + state.removed.size + ($('script').value.trim() ? 1 : 0);
@@ -197,13 +263,20 @@ async function loadRelease(tag) {
 
 async function main() {
   $('repo-link').href = `https://github.com/${REPO}`;
+  $('home').addEventListener('click', () => store.set('device', ''));
   $('search').addEventListener('input', renderResults);
   $('base-filter').addEventListener('input', renderBase);
   $('kmod-filter').addEventListener('input', renderKmods);
   $('script').addEventListener('input', updateRequest);
   $('add-btn').addEventListener('click', () => addPackages($('add-input').value));
   $('add-input').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); addPackages($('add-input').value); } });
-  $('request').addEventListener('click', () => window.open(issueUrl(), '_blank', 'noopener'));
+  $('track-runs').href = `https://github.com/${REPO}/actions/workflows/custom.yml`;
+  $('track-mine').href = `https://github.com/${REPO}/issues?q=${encodeURIComponent('is:issue label:custom-build author:@me')}`;
+  $('request').addEventListener('click', () => {
+    const e = state.entry;
+    window.open(issueUrl(), '_blank', 'noopener');
+    track(`[build] ${e.titles[0] || e.profile}`);
+  });
   $('dev-sha').addEventListener('click', () => navigator.clipboard?.writeText($('dev-sha').textContent));
   $('release').addEventListener('change', (ev) => loadRelease(ev.target.value));
 

@@ -10,7 +10,7 @@
 <body>
 <header class="top">
   <div class="wrap top-row">
-    <h1>ppe-nss firmware</h1>
+    <h1><a id="home" href="./">ppe-nss firmware</a></h1>
     <a class="btn sponsor" href="https://github.com/sponsors/JuliusBairaktaris" target="_blank" rel="noopener">♥ Sponsor</a>
     <label class="release">
       <span>Release</span>
@@ -52,6 +52,7 @@
       <button class="btn" id="add-btn" type="button">Add</button>
     </div>
     <datalist id="add-suggest"></datalist>
+    <p id="add-note" class="note" role="status" aria-live="polite"></p>
     <ul id="added" class="chips"></ul>
 
     <details>
@@ -67,6 +68,14 @@
     <div class="actions">
       <button class="btn primary" id="request" type="button">Request build</button>
       <span id="request-note" class="muted"></span>
+    </div>
+    <div id="track" class="track hidden" role="status" aria-live="polite">
+      <ol>
+        <li id="track-issue">Submit the issue in the tab that just opened; the build starts when it is submitted.</li>
+        <li id="track-run">Build: waiting for the issue.</li>
+        <li id="track-done">The image is posted on the issue when the build finishes.</li>
+      </ol>
+      <p class="muted"><a id="track-runs" target="_blank" rel="noopener">All custom builds</a> · <a id="track-mine" target="_blank" rel="noopener">My requests</a></p>
     </div>
   </section>
 

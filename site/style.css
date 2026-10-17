@@ -71,6 +71,7 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monosp
 }
 .top-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 4em; flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
 h1 { font-size: 1.25rem; font-weight: 500; letter-spacing: 0.0075em; margin: 0; flex: 1; }
+h1 a { color: inherit; text-decoration: none; }
 .btn.sponsor { padding: 6px 12px; color: #fff; background: none; border: 1px solid #fff; box-shadow: none; }
 .btn.sponsor:hover { background: rgba(255, 255, 255, 0.15); }
 .release { display: flex; align-items: center; gap: 8px; font-size: 0.9em; }
@@ -134,6 +135,15 @@ input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px s
   padding: 4px 12px; cursor: pointer; font-size: 0.9em; min-height: 44px;
 }
 .chips.small li button { font-size: 0.82em; }
+.chips li button.new { animation: flash 1.5s ease-out; }
+@keyframes flash { from { background: var(--accent); color: #fff; } }
+.note { min-height: 1.4em; margin: 4px 0; font-size: 0.92em; color: var(--muted); }
+.note.bad { color: var(--chip-off-fg); }
+.track { margin-top: 12px; padding: 0.6em 1em; border-left: 3px solid var(--accent); }
+.track ol { margin: 0; padding-left: 1.2em; }
+.track li { margin: 4px 0; }
+.track li.ok::marker { content: "✓  "; color: var(--accent); }
+.track li.bad::marker { content: "✕  "; color: var(--chip-off-fg); }
 .chips li button.off { background: var(--chip-off); color: var(--chip-off-fg); text-decoration: line-through; }
 details { margin: 12px 0; }
 summary { cursor: pointer; padding: 10px 0; min-height: 44px; }
@@ -146,7 +156,7 @@ details input { margin: 8px 0; }
 .plain { padding-left: 18px; }
 .plain li { margin: 6px 0; }
 .plain code { word-break: break-word; }
-.foot { font-size: 0.8em; text-align: right; padding-top: 8px; padding-bottom: 32px; }
+.foot { font-size: 0.8em; text-align: center; padding-top: 8px; padding-bottom: 32px; }
 .foot a { text-decoration: none; display: inline-block; padding: 14px 0; }
 
 @media (max-width: 600px) {
@@ -154,5 +164,4 @@ details input { margin: 8px 0; }
   .device-head .btn { width: 100%; }
   .actions .btn { width: 100%; }
   .card { padding: 0.625em 12px; }
-  .foot { text-align: left; }
 }
