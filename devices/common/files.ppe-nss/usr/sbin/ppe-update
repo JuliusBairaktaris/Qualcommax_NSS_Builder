@@ -1,0 +1,146 @@
+#!/bin/sh
+# ppe-update: move this router to the newest image of the builder it came from.
+#
+#   ppe-update status    one line of JSON for LuCI
+#   ppe-update check     exit 0 if a newer image exists, 1 if not, 2 on error
+#   ppe-update update    download, verify and flash the newer image (keeps settings)
+#   ppe-update start     run update in the background, logging to /tmp/ppe-update.log
+#   ppe-update auto      what cron runs: update when enabled and the release is old enough
+#   ppe-update restore   reinstall the packages added on top of the image (runs after boot)
+#
+# Packages installed on top of the image are written to /etc/ppe-update/packages
+# before the flash and installed again from the new release's feeds after it.
+
+. /etc/ppe-release 2>/dev/null
+
+STATE=/etc/ppe-update
+WORK=/tmp/ppe-update
+BOARD=$(cat /tmp/sysinfo/board_name 2>/dev/null)
+
+log() { logger -t ppe-update "$*"; echo "$*" >&2; }
+die() { log "$*"; exit 2; }
+
+fetch() {
+	uclient-fetch -q -T 30 -O "$2" "$1" 2>/dev/null
+}
+
+# Fills LATEST, LATEST_TIME, IMAGE, SHA256, SIZE, NEWGROUP and $WORK/manifest.
+lookup() {
+	[ -n "$TAG" ] && [ -n "$SITE" ] || die "this image was not built by the builder (no /etc/ppe-release)"
+	mkdir -p "$WORK"
+	fetch "$SITE/releases.json" "$WORK/releases.json" || die "cannot fetch $SITE/releases.json"
+	moved=$(jsonfilter -i "$WORK/releases.json" -e '@.moved')
+	if [ -n "$moved" ] && [ "$moved" != "$SITE" ]; then
+		SITE=$moved
+		fetch "$SITE/releases.json" "$WORK/releases.json" || die "cannot fetch $SITE/releases.json"
+	fi
+	LATEST=$(jsonfilter -i "$WORK/releases.json" -e '@.latest')
+	[ -n "$LATEST" ] || die "releases.json names no latest release"
+	LATEST_TIME=$(jsonfilter -i "$WORK/releases.json" -e "@.releases[@.tag='$LATEST'].time")
+	fetch "$SITE/$LATEST/boards.json" "$WORK/boards.json" || die "cannot fetch the board list of $LATEST"
+	NEWGROUP=$GROUP
+	[ -n "$(jsonfilter -i "$WORK/boards.json" -e "@[@.board='$BOARD' && @.group='$NEWGROUP'].image")" ] ||
+		NEWGROUP=$(jsonfilter -i "$WORK/boards.json" -e "@[@.board='$BOARD'].group" | head -n1)
+	[ -n "$NEWGROUP" ] || die "$LATEST has no image for $BOARD"
+	sel="@[@.board='$BOARD' && @.group='$NEWGROUP']"
+	IMAGE=$(jsonfilter -i "$WORK/boards.json" -e "$sel.image")
+	SHA256=$(jsonfilter -i "$WORK/boards.json" -e "$sel.sha256")
+	SIZE=$(jsonfilter -i "$WORK/boards.json" -e "$sel.size")
+	jsonfilter -i "$WORK/boards.json" -e "$sel.packages[*]" >"$WORK/manifest"
+}
+
+newer() {
+	[ "$LATEST" != "$TAG" ] && [ "$(printf '%s\n%s\n' "$TAG" "$LATEST" | sort | tail -n1)" = "$LATEST" ]
+}
+
+# World entries the new image does not install by itself.
+extras() {
+	sed 's/[<>=~].*//' /etc/apk/world | sort -u | grep -vxF -f "$WORK/manifest"
+}
+
+cmd_status() {
+	auto=$(uci -q get ppe-update.main.auto)
+	if lookup 2>/dev/null; then
+		newer && avail=true || avail=false
+		printf '{"board":"%s","current":"%s","group":"%s","latest":"%s","latest_time":%s,"update":%s,"image":"%s","size":%s,"extras":"%s","auto":"%s"}\n' \
+			"$BOARD" "$TAG" "$GROUP" "$LATEST" "${LATEST_TIME:-0}" "$avail" "$IMAGE" "${SIZE:-0}" \
+			"$(extras | tr '\n' ' ')" "${auto:-0}"
+	else
+		printf '{"board":"%s","current":"%s","group":"%s","error":"cannot reach the release list","auto":"%s"}\n' \
+			"$BOARD" "$TAG" "$GROUP" "${auto:-0}"
+	fi
+}
+
+cmd_check() {
+	lookup
+	if newer; then
+		echo "update available: $TAG -> $LATEST ($IMAGE)"
+		x=$(extras | tr '\n' ' ')
+		[ -n "$x" ] && echo "reinstalled after the update: $x"
+		return 0
+	fi
+	echo "up to date: $TAG"
+	return 1
+}
+
+cmd_update() {
+	lookup
+	newer || { echo "up to date: $TAG"; return 1; }
+	free=$(awk '/^MemAvailable/ { print $2 * 1024 }' /proc/meminfo)
+	[ "${SIZE:-0}" -gt 0 ] && [ "$free" -gt $((SIZE * 3)) ] || die "not enough free memory for a $SIZE byte image"
+
+	log "downloading $IMAGE from $LATEST"
+	fetch "https://github.com/$REPO/releases/download/$LATEST/$IMAGE" "$WORK/$IMAGE" || die "download failed"
+	[ "$(sha256sum "$WORK/$IMAGE" | cut -d' ' -f1)" = "$SHA256" ] || { rm -f "$WORK/$IMAGE"; die "checksum mismatch"; }
+	sysupgrade -T "$WORK/$IMAGE" >/dev/null 2>&1 || { rm -f "$WORK/$IMAGE"; die "sysupgrade rejects $IMAGE"; }
+
+	mkdir -p "$STATE"
+	extras >"$STATE/packages"
+	[ -s "$STATE/packages" ] || rm -f "$STATE/packages"
+	log "flashing $LATEST, keeping settings"
+	sysupgrade "$WORK/$IMAGE"
+}
+
+cmd_start() {
+	(cmd_update </dev/null >/tmp/ppe-update.log 2>&1; echo "exit $?" >>/tmp/ppe-update.log) &
+}
+
+cmd_auto() {
+	[ "$(uci -q get ppe-update.main.auto)" = 1 ] || return 0
+	lookup
+	newer || return 0
+	age=$(( $(date +%s) - ${LATEST_TIME:-0} ))
+	min=$(( $(uci -q get ppe-update.main.delay || echo 1) * 86400 ))
+	[ "$age" -ge "$min" ] || { log "$LATEST is newer than the delay; waiting"; return 0; }
+	cmd_update
+}
+
+cmd_restore() {
+	[ -s "$STATE/packages" ] || return 0
+	lock -n /var/lock/ppe-update || return 0
+	# The network comes up after boot; retry for up to an hour.
+	i=0
+	while [ $i -lt 120 ]; do
+		if apk update >/dev/null 2>&1; then
+			# shellcheck disable=SC2046
+			if apk add $(cat "$STATE/packages"); then
+				log "reinstalled: $(tr '\n' ' ' <"$STATE/packages")"
+				rm -f "$STATE/packages"
+				return 0
+			fi
+			log "apk add failed; the list stays in $STATE/packages"
+			return 2
+		fi
+		i=$((i + 1))
+		sleep 30
+	done
+	die "no package feed reachable; the list stays in $STATE/packages"
+}
+
+case "$1" in
+status | check | update | start | auto | restore) "cmd_$1" ;;
+*)
+	sed -n '2,10s/^# \{0,1\}//p' "$0"
+	exit 2
+	;;
+esac

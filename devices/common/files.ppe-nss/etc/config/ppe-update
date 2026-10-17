@@ -1,0 +1,7 @@
+config ppe-update 'main'
+	# 1: flash a newer release by itself, keeping settings and added packages
+	option auto '0'
+	# hour of the daily check (router time)
+	option hour '4'
+	# days a release must be out before it is installed automatically
+	option delay '1'

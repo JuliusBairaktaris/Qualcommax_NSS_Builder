@@ -103,6 +103,24 @@ apk update && apk add kmod-<name>
 The feed belongs to the release the image came from and is removed with it.
 After a sysupgrade the image points at its new feed.
 
+## Updates
+
+`ppe-update` moves an image to the newest release of this repository,
+keeping the settings and installing the packages added on top of the image
+again after the reboot:
+
+```sh
+ppe-update check     # is there a newer release?
+ppe-update update    # download, verify and flash it
+```
+
+In LuCI it is System → Firmware update, which also turns on the automatic
+update: once a day it installs a release that has been out for a day.
+
+```sh
+uci set ppe-update.main.auto='1'; uci commit ppe-update; /etc/init.d/ppe-update reload
+```
+
 ## Coming from edma-nss
 
 Upgrade with a normal sysupgrade; settings may be kept. Nothing is migrated

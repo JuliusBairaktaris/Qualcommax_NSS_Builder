@@ -193,6 +193,7 @@ jobs:
 
       # The image trusts the key that signs its packages (base-files ships
       # public-key.pem). Without the secret, OpenWrt makes a key per build.
+      # /etc/ppe-release tells ppe-update where its newer images are.
       - name: Point the image at its kmod feed
         working-directory: openwrt
         env:
@@ -206,8 +207,11 @@ jobs:
           fi
           # The OpenWrt target feed serves another kernel's modules; this
           # build's own target packages replace it.
-          url="https://${OWNER,,}.github.io/${REPO_NAME}/${TAG}/${DEVICE}/packages.adb"
+          site="https://${OWNER,,}.github.io/${REPO_NAME}"
+          url="${site}/${TAG}/${DEVICE}/packages.adb"
           mkdir -p files/etc/uci-defaults
+          printf "TAG='%s'\nGROUP='%s'\nSITE='%s'\nREPO='%s'\n" \
+            "$TAG" "$DEVICE" "$site" "$GITHUB_REPOSITORY" >files/etc/ppe-release
           printf '%s\n' "sed -i 's|^.*/targets/.*/packages/packages\\.adb\$|${url}|' /etc/apk/repositories.d/distfeeds.list" \
             >files/etc/uci-defaults/997-kmod-feed
 

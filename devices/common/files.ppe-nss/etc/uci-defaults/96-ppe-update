@@ -1,0 +1,6 @@
+#!/bin/sh
+# Files of the image overlay are not enabled by a package install. The first
+# boot after an update is also where the kept package list is reinstalled.
+/etc/init.d/ppe-update enable
+[ -s /etc/ppe-update/packages ] && (/usr/sbin/ppe-update restore </dev/null >/dev/null 2>&1 &)
+exit 0

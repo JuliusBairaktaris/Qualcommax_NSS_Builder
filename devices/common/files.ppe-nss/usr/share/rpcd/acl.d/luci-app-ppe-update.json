@@ -1,0 +1,18 @@
+{
+	"luci-app-ppe-update": {
+		"description": "Grant access to the builder firmware update",
+		"read": {
+			"file": {
+				"/usr/sbin/ppe-update status": [ "exec" ],
+				"/tmp/ppe-update.log": [ "read" ]
+			},
+			"uci": [ "ppe-update" ]
+		},
+		"write": {
+			"file": {
+				"/usr/sbin/ppe-update start": [ "exec" ]
+			},
+			"uci": [ "ppe-update" ]
+		}
+	}
+}
