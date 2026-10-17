@@ -135,3 +135,8 @@ CONFIG_NSS_FIRMWARE_VERSION_12_5=y
 ## reboots in the board's ramoops region; the image archives them to
 ## /root/pstore on the next boot.
 CONFIG_PACKAGE_kmod-ramoops=y
+
+## ppe-help collects a redacted diagnostic report for bug reports
+## (ppe-help -h). It is a target default on ppe-nss; listed here so the
+## images keep it whatever the profile selects.
+CONFIG_PACKAGE_ppe-help=y
