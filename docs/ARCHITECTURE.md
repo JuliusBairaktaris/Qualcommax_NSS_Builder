@@ -1,72 +1,53 @@
 # Architecture
 
-This is a tour of the moving parts. If you're trying to debug a build or extend it, start here.
+## Workflows
 
-## Pipeline
+| Workflow | Builds | Release |
+|---|---|---|
+| `build.yml` | `ppe-nss` of openwrt-ppe-nss, six groups, two flavours | `ppe-nss-*` and `ppe-nss-mesh-*`, a new pair per build |
+| `build-ppe.yml` | `ppe-flow-offload`, every board of each subtarget, no NSS | `ppe-offload-test`, one prerelease updated in place |
+| `lint.yml` | nothing | runs `actionlint`, `shellcheck` and `yamllint` on workflow and script changes |
+
+## The build.yml pipeline
 
 ```mermaid
 flowchart LR
     check --> release --> build --> publish --> prune
+    check --> stats
 ```
 
-| Job | File | Runtime | Purpose |
-|---|---|---|---|
-| `check` | `build.yml` → `scripts/check-updates.sh` | ~15s | Resolves the upstream (and NSS) ref to a commit SHA via `git ls-remote`. On a **scheduled** tick it skips the build when the latest release already records the SHA(s); on **push** (config changed) and **manual** runs it always builds. Emits `upstream_sha`, `nss_sha`, `need`. |
-| `release` | `build.yml` | ~5s | Opens one draft release per flavour (default, mesh) for the build jobs to upload into, and emits their tags. |
-| `build` | `build.yml` → `scripts/prepare-build.sh` | 2-6h | One matrix job per `devices/<name>/` × flavour. Checks out the upstream at the pinned SHA, runs `prepare-build.sh` (feeds, `.config`, overlays), sets reproducible-build env, compiles, uploads its images into the draft. |
-| `publish` | `build.yml` | ~5s | Publishes both drafts once every group of both flavours succeeded; deletes them (tags included) and fails otherwise. Only the default flavour is marked latest. |
-| `prune` | `build.yml` → `scripts/prune-releases.sh` | ~10s | Keeps the newest `KEEP` releases of each prefix. Tested in `scripts/tests/prune-releases.test.sh`. |
+| Job | Script | Does |
+|---|---|---|
+| `check` | `scripts/check-updates.sh` | Resolves the `ppe-nss` and `edma-nss` refs to commits. On a scheduled run it skips the build when the latest release already records both. Push and manual runs always build. |
+| `stats` | `scripts/download-stats.sh` | Updates the download badge on the `stats` branch, including releases already pruned. |
+| `release` | | Opens one draft release per flavour and writes its notes, including the source commits. |
+| `build` | `scripts/prepare-build.sh` | One job per group and flavour. Checks out the source at the resolved commit, sets up feeds, patches, config and overlays, restores the caches, builds, and uploads the sysupgrade images, `sha256sums-<group>.txt` and `config-<group>.buildinfo` into the draft. |
+| `publish` | | Publishes both drafts once every job succeeded, and marks the default flavour as latest. If any job failed, it deletes both drafts. |
+| `prune` | `scripts/prune-releases.sh` | Keeps the newest `KEEP` releases of each prefix. |
 
-## Why one release for all groups?
+## Design choices
 
-Boards are built in groups by subtarget and RAM, one matrix job per group.
-That is a build-side split, not something a
-user should have to know about: one release holds every device's images, and
-`publish` is what keeps it all-or-nothing. A partial set would read as "this
-device is not supported" when it only means one group's compile broke, and a
-draft left behind is never pruned.
+- **All or nothing.** One release holds every board. A partial release
+  would read as "this board is not supported" when only one group failed,
+  so a failed job discards the whole draft.
+- **Mesh is a separate release.** Its images have the same names as the
+  default ones, and which firmware to run is the user's choice.
+- **Groups by RAM.** The ath11k memory profile is fixed at build time for
+  the whole image, so boards can only share a build when they share a RAM
+  size.
+- **Reproducible inputs.** `SOURCE_DATE_EPOCH` is the commit time of the
+  checked-out source, with `TZ=UTC`, `LC_ALL=C` and fixed kbuild user and
+  host. The images follow the branch tip, so each build pins a commit but
+  the next one moves on.
+- **Caches.** Verified source downloads and ccache are kept between runs
+  (see [CUSTOMIZE.md](CUSTOMIZE.md#caches)). The build tree itself is never
+  cached.
+- **Scripts, not inline shell.** Logic lives in `scripts/` with
+  `set -euo pipefail` and `scripts/lib/log.sh`, so it can be run and
+  checked locally.
 
-The mesh flavour is a second release rather than more assets in that one, on
-the same reasoning read the other way: it is the same device set built against
-a different NSS firmware line, so its images share the group names and would
-collide. Which firmware a device wants is a choice the user makes, so it is the one split that belongs in front of them.
+## Tests
 
-## Why split into jobs?
-
-- **One network step** — `check` does all the SHA resolution and "did anything change?" logic in one place, so `build` is pure compile.
-- **Re-runnable prune** — if cleanup fails, re-run just that job.
-- **Clear failure attribution** — each step is its own red/green node in the Actions UI.
-
-## Why no caching?
-
-1. **Predictability.** Every release is built from a clean tree, so reproducing locally matches CI.
-2. **Cache-poisoning surface.** OpenWrt's build dir is 10+ GB; corrupted caches produce broken images that look fine.
-3. **Size limits.** OpenWrt builds blow past `actions/cache` limits anyway.
-
-ccache is also disabled (`# CONFIG_CCACHE is not set` in the config) since it's a no-op without persistent storage.
-
-## Reproducibility note
-
-`SOURCE_DATE_EPOCH` is taken from the checked-out upstream commit (`git show -s --format=%ct HEAD`).
-The image is intentionally *current* (latest `ppe-nss` head each build), so the SHA is pinned
-per build but the tip moves as upstream does — that is the documented trade-off for "refresh on build".
-
-## Why an `env:` block instead of a config file?
-
-Every build parameter (upstream, NSS, target, feed, retention, cron) lives in the `env:` block at
-the top of `build.yml`, and the set of devices is the `build` job's matrix next to it. It is the one
-file you edit — no separate YAML to parse, no extra tooling (`yq`) on the runner.
-
-## Why `scripts/` instead of inline shell?
-
-Inline shell in YAML is hostile to shellcheck, testing, and diffing. So all non-trivial logic lives in
-`scripts/`, gets `set -euo pipefail`, sources `scripts/lib/log.sh`, and is reachable from `bash`
-directly for local debugging.
-
-## Test strategy
-
-`prune-releases.sh` has unit tests — it has a clear input/output contract (JSON list → tags to
-delete), is destructive on failure, and previously hid a "keep last N" bug for months.
-`check-updates.sh` is exercised by running it directly (it prints the resolution and fails fast on bad
-input); the rest orchestrate `make`, which isn't usefully unit-testable, and are guarded by
-`actionlint` + `shellcheck`.
+`scripts/tests/prune-releases.test.sh` covers `prune-releases.sh`, which
+deletes releases. `check-updates.sh` prints its decision and fails on bad
+input. The rest drives `make` and is covered by the lint workflow.

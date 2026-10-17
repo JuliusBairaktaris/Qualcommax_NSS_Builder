@@ -1,28 +1,38 @@
 # Customizing the build
 
-All knobs live in the **`env:` block of [`.github/workflows/build.yml`](../.github/workflows/build.yml)**,
-the **[shared `.config`](../devices/common/config)** plus its per-device
-companion, and the overlay directories. This page shows what each one does.
+A build is set by three things:
 
-## Build parameters (`build.yml` → `env:`)
+- the `env:` block and the matrix in
+  [`.github/workflows/build.yml`](../.github/workflows/build.yml);
+- the shared config [`devices/common/config`](../devices/common/config)
+  plus one config per board group;
+- the overlay files and patches under `devices/` and `patches/`.
+
+## Build parameters
 
 ```yaml
 env:
   UPSTREAM_REPO: JuliusBairaktaris/openwrt-ppe-nss   # OpenWrt source tree
-  UPSTREAM_REF: ppe-nss                               # branch, tag, or 40-char SHA
-  NSS_REPO: JuliusBairaktaris/nss-packages            # nss-firmware feed (blank to disable)
+  UPSTREAM_REF: ppe-nss                               # branch, tag or SHA
+  NSS_REPO: JuliusBairaktaris/nss-packages            # nss-firmware feed
   NSS_REF: edma-nss
-  VARIANT: ppe-nss                                    # selects files.<variant>, patches/*/<variant>
-  RELEASE_PREFIX: ppe-nss                             # tag = <prefix>-<ts>-<run id>
-  MESH_RELEASE_PREFIX: ppe-nss-mesh                   # same, for the mesh flavour
-  KEEP: "2"                                           # newest releases to retain, per prefix
+  VARIANT: ppe-nss                                    # selects files.<variant> and patches/*/<variant>
+  RELEASE_PREFIX: ppe-nss                             # tag = <prefix>-<timestamp>-<run id>
+  MESH_RELEASE_PREFIX: ppe-nss-mesh                   # the same, for the mesh flavour
+  KEEP: "2"                                           # newest releases kept per prefix
   FEEDS: |
     src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss
     src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos
 ```
 
-Which devices get built is the `build` job's matrix, one entry per
-`devices/<id>/` directory:
+Each `FEEDS` line is added to `feeds.conf`. A line with the name of an
+existing feed replaces it, which is how the luci fork with
+`luci-app-ppe-qos` stands in for the default luci feed. A new feed is not
+bundled whole: only the packages selected in the config are built.
+
+## Groups and flavours
+
+The `build` job builds every group twice:
 
 ```yaml
     strategy:
@@ -34,108 +44,97 @@ Which devices get built is the `build` job's matrix, one entry per
             config_fragment: devices/common/config.mesh
 ```
 
-The subtarget is part of each group's config (`CONFIG_TARGET_qualcommax_ipq807x=y`
-or `CONFIG_TARGET_qualcommax_ipq60xx=y`), not of the shared one, so ipq807x and
-ipq60xx groups build side by side.
+A group is one `devices/<group>/` directory. Boards share a group when they
+share a subtarget and a RAM size, because the ath11k memory profile is
+fixed at build time for the whole image. The subtarget is set in each
+group's config, so IPQ807x and IPQ60xx groups build side by side.
 
-The second axis is the **flavour**: every group is built twice, once plain and
-once for 802.11s mesh, and each flavour gets its own release
-(`RELEASE_PREFIX` / `MESH_RELEASE_PREFIX`). A flavour is nothing but a `.config`
-fragment appended after the common and device configs — `CONFIG_FRAGMENT`,
-which `prepare-build.sh` reads — so it wins on any symbol they also set. Mesh
-needs it because its NSS firmware line (11.4.0.5, the last one that accepts a
-mesh interface) is image-wide. The overlay files are
-unaffected: both flavours use `files.$VARIANT`.
+A flavour is a config fragment appended last. `config.mesh` swaps the NSS
+firmware to 11.4.0.5, the last line that accepts a mesh interface. Each
+flavour has its own release.
 
-Adding a device to a group is one
-`CONFIG_TARGET_DEVICE_qualcommax_<subtarget>_DEVICE_<id>=y` line in the group
-config of its subtarget and RAM size.
+To add a board, add one line to the config of its group:
 
-`CONFIG_TARGET_PER_DEVICE_ROOTFS=y` is what keeps each image to its own device
-packages; without it every image in a group carries every other board's.
+```
+CONFIG_TARGET_DEVICE_qualcommax_<subtarget>_DEVICE_<board>=y
+```
 
-When the build runs depends on the trigger:
-- **schedule** → `check` skips the build when the upstream is unchanged since the last release
-  (this is the "rebuild when upstream moves" path).
-- **push** → always rebuilt — a push to this repo means the config, overlays, or scripts changed,
-  so the image must be regenerated.
-- **Run workflow** (`workflow_dispatch`) → always rebuilt.
+`CONFIG_TARGET_PER_DEVICE_ROOTFS=y` keeps each image to the packages of
+its own board.
 
-## Device `.config`
+## The config
 
-The `.config` is assembled from two files: everything device-independent is in
-[`devices/common/config`](../devices/common/config), and `devices/<id>/config`
-adds the device list and any board-specific package
-pruning. `prepare-build.sh` concatenates them (the device file wins on a symbol
-set in both) and runs `make defconfig`. To change something, edit in a real
-OpenWrt checkout and diff back:
+`scripts/prepare-build.sh` concatenates `devices/common/config`,
+`devices/<group>/config` and the flavour fragment, in that order; the last
+file wins on a symbol set twice. Then it runs `make defconfig` and checks
+that every symbol set to `y` is still set. Kconfig drops a symbol whose
+dependencies are not met without a word, so a missing one fails the build.
+
+To change the config, edit it in a real checkout and diff it back:
 
 ```sh
 git clone --branch ppe-nss https://github.com/JuliusBairaktaris/openwrt-ppe-nss openwrt
 cat devices/common/config devices/xiaomi_ax3600/config > openwrt/.config
 cd openwrt && make menuconfig
-./scripts/diffconfig.sh > /tmp/full.config        # minimal .config (deltas only)
-# then split the delta back over devices/common/config and devices/<id>/config
+./scripts/diffconfig.sh > /tmp/delta.config
 ```
 
-A symbol whose dependencies are unmet is dropped silently by `make defconfig`,
-which is how an image ships without an option someone asked for. Every
-requested `=y` symbol is therefore re-checked against the resolved `.config`,
-and a missing one fails the build.
-
-Anything a board does not have belongs in its own config, never in the shared
-one: `DEVICE_PACKAGES` pulls in each board's ath10k firmware, USB and 10G PHY
-support, and disabling those globally ships a broken image for every board that
-does have the hardware.
+Then split the delta over `devices/common/config` and the group config.
+Do not turn off a board's hardware in the shared config: `DEVICE_PACKAGES`
+pulls in each board's ath10k firmware, USB and 10G PHY support, and the
+boards that have that hardware need it.
 
 ## Routed multicast
 
-Same-subnet multicast is bridged in hardware through switchdev. Routed
-multicast (IPTV WAN→LAN) needs a daemon that fills the kernel multicast
-routing table, which the image does not bundle. Add
+Multicast inside a bridge is offloaded through switchdev with no extra
+package. Routed multicast (IPTV from the WAN) needs a daemon that fills the
+kernel multicast routing table, which the images do not bundle. Add
 `CONFIG_PACKAGE_igmpproxy=y` (or `smcroute`) to `devices/common/config` and
-ship your own `/etc/config/igmpproxy` for your topology. The mroute kernel
-options it needs are already set.
+ship your own `/etc/config/igmpproxy` as an overlay file. The kernel
+multicast routing options are already set.
 
-## Custom feeds
+## Overlay files
 
-Each `src-git <name> <url>` line in `FEEDS` is appended to `feeds.conf` and updated/installed
-individually. The corresponding `CONFIG_FEED_<name>` is then set to `n` so you don't bundle every
-package from the feed — only what you explicitly enable in `.config` ships.
+Four layers are copied into the image, later ones winning:
 
-## Rootfs overlay
+1. `devices/common/files/`: every image
+2. `devices/common/files.<variant>/`: every image of the variant
+3. `devices/<group>/files/`: one group
+4. `devices/<group>/files.<variant>/`: one group, one variant
 
-Four overlay layers, applied in order (later wins), each optional:
+Paths are kept. `etc/ssh/sshd_config` is set to mode 0600.
+`etc/uci-defaults/*` scripts run once on first boot and after each
+sysupgrade; write them so that they do not overwrite a setting the user
+changed. `etc/rc.local` runs on every boot.
 
-1. `devices/common/files/` — every image
-2. `devices/common/files.ppe-nss/` — every image, variant-specific
-3. `devices/<id>/files/` — one device
-4. `devices/<id>/files.ppe-nss/` — one device, variant-specific
+## Patches
 
-Anything under these is copied to the image root, preserving paths. Special handling:
-- `etc/ssh/sshd_config` is `chmod 0600`'d automatically
-- `etc/uci-defaults/<name>` files run once on first boot, then are deleted
-- `etc/rc.local` runs on every boot
+- `patches/feeds/<variant>/<feed>/*.patch` apply to a feed after
+  `feeds update`. The `ppe-nss` one points `sqm-scripts` at the fork that
+  carries `hw_ppe.qos`.
+- `patches/tree/<variant>/*.patch` apply to the OpenWrt tree. They carry
+  fixes not yet in the branch being built. A patch that is already applied
+  is skipped; one that does not apply fails the build.
 
-## Cron schedule
-
-GitHub Actions requires `cron:` values to be static. Edit [`.github/workflows/build.yml`](../.github/workflows/build.yml):
+## Schedule and triggers
 
 ```yaml
 on:
   schedule:
-    - cron: "0 */2 * * *"            # every 2 hours
+    - cron: "0 */2 * * *"
 ```
 
-Use [crontab.guru](https://crontab.guru) if you're unsure.
+A scheduled run builds only when the `ppe-nss` or `edma-nss` commit
+differs from the one the latest release records. A push to `devices/`,
+`scripts/` or the workflow, and a manual run, always build. Remove the
+`schedule:` block for manual builds only.
 
-## Disabling caching
+## Caches
 
-This build does not use `actions/cache` and explicitly sets `# CONFIG_CCACHE is not set` in the
-config. ccache without persistent storage is a no-op on fresh runners, and `actions/cache` for
-OpenWrt's multi-GB build dir is a footgun (easily corrupts mid-build).
+Two GitHub Actions caches speed up builds:
 
-## Disabling the schedule
-
-If you only want manual builds, remove the `schedule:` block from `build.yml` (keep
-`workflow_dispatch` and `push`).
+- `dl-*` holds the verified source downloads, so a stalled mirror does not
+  fail a build. Delete the `dl-` entries to start over.
+- `ccache-<variant>-<toolchain hash>-*` holds the compiler cache. The key
+  covers every toolchain input, so a toolchain change starts with an empty
+  cache.
