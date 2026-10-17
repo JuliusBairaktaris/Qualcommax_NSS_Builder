@@ -39,8 +39,8 @@ stock OpenWrt first from its [device page](https://openwrt.org/toh/start).
 
 | Release | Use it for |
 |---|---|
-| `ppe-nss-*` | The default. NSS firmware 12.5 (`NSS.FW.12.5-210-HK.R` on IPQ807x, `NSS.FW.12.5-210-CP.R` on IPQ60xx). |
-| `ppe-nss-mesh-*` | 802.11s mesh. The same images on NSS firmware 11.4.0.5, the last line that accepts a mesh interface. |
+| `ppe-nss-*` | The default. NSS firmware 12.5 (`NSS.FW.12.5-210-HK.R` on IPQ807x, `NSS.FW.12.5-210-CP.R` on IPQ60xx) and 11.4.0.5, the last line that accepts an 802.11s mesh interface. The images boot 12.5; `uci set nss-wifi.general.firmware=11.4; uci commit nss-wifi; reboot` switches to 11.4. |
+| `ppe-nss-mesh-*` | Earlier mesh builds on 11.4. No longer built: the `ppe-nss` images carry both lines. |
 | `ppe-offload-test` | One prerelease, replaced in place. OpenWrt main with the PPE offload from the `ppe-flow-offload` branch and no NSS. For testing only. |
 | `edma-nss-*` | The archived vendor NSS stack. No longer built. |
 
@@ -145,7 +145,6 @@ cat ../builder/devices/common/config ../builder/devices/xiaomi_ax3600/config > .
 make defconfig && make -j"$(nproc)"
 ```
 
-Append `devices/common/config.mesh` to the `.config` for the mesh images.
 `scripts/prepare-build.sh` does all of the above in CI and also copies the
 overlay files from `devices/*/files*` into the image.
 

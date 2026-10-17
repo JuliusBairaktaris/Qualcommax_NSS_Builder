@@ -18,7 +18,6 @@ env:
   NSS_REF: edma-nss
   VARIANT: ppe-nss                                    # selects files.<variant> and patches/*/<variant>
   RELEASE_PREFIX: ppe-nss                             # tag = <prefix>-<timestamp>-<run id>
-  MESH_RELEASE_PREFIX: ppe-nss-mesh                   # the same, for the mesh flavour
   KEEP: "2"                                           # newest releases kept per prefix
   FEEDS: |
     src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss
@@ -30,28 +29,20 @@ existing feed replaces it, which is how the luci fork with
 `luci-app-ppe-qos` stands in for the default luci feed. A new feed is not
 bundled whole: only the packages selected in the config are built.
 
-## Groups and flavours
+## Groups
 
-The `build` job builds every group twice:
+The `build` job builds every group:
 
 ```yaml
     strategy:
       matrix:
         device: [xiaomi_ax3600, ipq807x-1g, ipq807x-512m, ipq807x-256m, ipq60xx-1g, ipq60xx-512m]
-        flavour: [default, mesh]
-        include:
-          - flavour: mesh
-            config_fragment: devices/common/config.mesh
 ```
 
 A group is one `devices/<group>/` directory. Boards share a group when they
 share a subtarget and a RAM size, because the ath11k memory profile is
 fixed at build time for the whole image. The subtarget is set in each
 group's config, so IPQ807x and IPQ60xx groups build side by side.
-
-A flavour is a config fragment appended last. `config.mesh` swaps the NSS
-firmware to 11.4.0.5, the last line that accepts a mesh interface. Each
-flavour has its own release.
 
 To add a board, add one line to the config of its group:
 
@@ -65,7 +56,7 @@ its own board.
 ## The config
 
 `scripts/prepare-build.sh` concatenates `devices/common/config`,
-`devices/<group>/config` and the flavour fragment, in that order; the last
+`devices/<group>/config` and the `CONFIG_FRAGMENT` file if set, in that order; the last
 file wins on a symbol set twice. Then it runs `make defconfig` and checks
 that every symbol set to `y` is still set. Kconfig drops a symbol whose
 dependencies are not met without a word, so a missing one fails the build.

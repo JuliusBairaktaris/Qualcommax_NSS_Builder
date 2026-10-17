@@ -15,7 +15,7 @@
 # Optional env:
 #   FEEDS         newline-separated `src-git <name> <url>` lines for feeds.conf;
 #                 a name already in feeds.conf replaces that feed (fork stand-in)
-#   CONFIG_FRAGMENT  repo-relative .config fragment appended last (flavour, e.g. mesh)
+#   CONFIG_FRAGMENT  repo-relative .config fragment appended last
 #   COMMON        devices/<COMMON> holding the shared config and overlays (default: common)
 
 set -euo pipefail

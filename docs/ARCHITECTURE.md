@@ -4,7 +4,7 @@
 
 | Workflow | Builds | Release |
 |---|---|---|
-| `build.yml` | `ppe-nss` of openwrt-ppe-nss, six groups, two flavours | `ppe-nss-*` and `ppe-nss-mesh-*`, a new pair per build |
+| `build.yml` | `ppe-nss` of openwrt-ppe-nss, six groups | `ppe-nss-*`, a new one per build |
 | `build-ppe.yml` | `ppe-flow-offload`, every board of each subtarget, no NSS | `ppe-offload-test`, one prerelease updated in place |
 | `lint.yml` | nothing | runs `actionlint`, `shellcheck` and `yamllint` on workflow and script changes |
 
@@ -20,9 +20,9 @@ flowchart LR
 |---|---|---|
 | `check` | `scripts/check-updates.sh` | Resolves the `ppe-nss` and `edma-nss` refs to commits. On a scheduled run it skips the build when the latest release already records both. Push and manual runs always build. |
 | `stats` | `scripts/download-stats.sh` | Updates the download badge on the `stats` branch, including releases already pruned. |
-| `release` | | Opens one draft release per flavour and writes its notes, including the source commits. |
-| `build` | `scripts/prepare-build.sh` | One job per group and flavour. Checks out the source at the resolved commit, sets up feeds, patches, config and overlays, restores the caches, builds, and uploads the sysupgrade images, `sha256sums-<group>.txt` and `config-<group>.buildinfo` into the draft. |
-| `publish` | | Publishes both drafts once every job succeeded, and marks the default flavour as latest. If any job failed, it deletes both drafts. |
+| `release` | | Opens a draft release and writes its notes, including the source commits. |
+| `build` | `scripts/prepare-build.sh` | One job per group. Checks out the source at the resolved commit, sets up feeds, patches, config and overlays, restores the caches, builds, and uploads the sysupgrade images, `sha256sums-<group>.txt` and `config-<group>.buildinfo` into the draft. |
+| `publish` | | Publishes the draft once every job succeeded and marks it latest. If any job failed, it deletes the draft. |
 | `prune` | `scripts/prune-releases.sh` | Keeps the newest `KEEP` releases of each prefix. |
 
 ## Design choices
@@ -30,8 +30,9 @@ flowchart LR
 - **All or nothing.** One release holds every board. A partial release
   would read as "this board is not supported" when only one group failed,
   so a failed job discards the whole draft.
-- **Mesh is a separate release.** Its images have the same names as the
-  default ones, and which firmware to run is the user's choice.
+- **Both firmware lines in one image.** The images carry NSS firmware 12.5
+  and 11.4 and boot 12.5; `nss-wifi.general.firmware` picks 11.4 for
+  802.11s mesh.
 - **Groups by RAM.** The ath11k memory profile is fixed at build time for
   the whole image, so boards can only share a build when they share a RAM
   size.
