@@ -18,3 +18,6 @@ CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_edimax_cax1800=y
 CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_linksys_mx4200v1=y
 CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_redmi_ax6=y
 CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_zte_mf269=y
+
+# Compressed swap in RAM for the boards with the least of it.
+CONFIG_PACKAGE_zram-swap=y

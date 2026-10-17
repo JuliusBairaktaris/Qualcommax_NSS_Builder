@@ -17,3 +17,6 @@ CONFIG_TARGET_PER_DEVICE_ROOTFS=y
 
 
 CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_netgear_wax218=y
+
+# Compressed swap in RAM for the boards with the least of it.
+CONFIG_PACKAGE_zram-swap=y

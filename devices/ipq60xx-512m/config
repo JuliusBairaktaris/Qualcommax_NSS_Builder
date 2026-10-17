@@ -27,3 +27,6 @@ CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_qihoo_360v6=y
 CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_tplink_eap610-outdoor=y
 CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_tplink_eap625-outdoor-hd-v1=y
 CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_yuncore_fap650=y
+
+# Compressed swap in RAM for the boards with the least of it.
+CONFIG_PACKAGE_zram-swap=y
