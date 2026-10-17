@@ -12,7 +12,7 @@
 
 ```mermaid
 flowchart LR
-    check --> release --> build --> publish --> prune
+    check --> release --> build --> publish --> prune --> feed
     check --> stats
 ```
 
@@ -21,9 +21,10 @@ flowchart LR
 | `check` | `scripts/check-updates.sh` | Resolves the `ppe-nss` and `edma-nss` refs to commits. On a scheduled run it skips the build when the latest release already records both. Push and manual runs always build. |
 | `stats` | `scripts/download-stats.sh` | Updates the download badge on the `stats` branch, including releases already pruned. |
 | `release` | | Opens a draft release and writes its notes, including the source commits. |
-| `build` | `scripts/prepare-build.sh` | One job per group. Checks out the source at the resolved commit, sets up feeds, patches, config and overlays, restores the caches, builds, and uploads the sysupgrade images, `sha256sums-<group>.txt` and `config-<group>.buildinfo` into the draft. |
+| `build` | `scripts/prepare-build.sh` | One job per group. Checks out the source at the resolved commit, sets up feeds, patches, config and overlays, restores the caches, builds, and uploads the sysupgrade images, `sha256sums-<group>.txt` and `config-<group>.buildinfo` into the draft, and its target packages as a workflow artifact. |
 | `publish` | | Publishes the draft once every job succeeded and marks it latest. If any job failed, it deletes the draft. |
 | `prune` | `scripts/prune-releases.sh` | Keeps the newest `KEEP` releases of each prefix. |
+| `feed` | | Pushes each build's target packages (kernel, every kmod, signed `packages.adb`) to `gh-pages` at `<tag>/<group>/`, where the image's `997-kmod-feed` uci-defaults points, and drops the feeds of releases that no longer exist. |
 
 ## Design choices
 

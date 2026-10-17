@@ -2,7 +2,7 @@ name: Build
 
 # Builds the ppe-nss images for every ipq807x and ipq60xx device, in six
 # groups:
-#   check (upstream moved?) -> draft release -> build each group -> publish -> prune
+#   check (upstream moved?) -> draft release -> build each group -> publish -> prune -> feed
 # All build parameters live in the `env:` block below and in devices/<group>/config.
 # The vendor NSS stack (edma-nss releases) was last built from the
 # archive/edma-nss-final tag of this repo.
@@ -191,6 +191,26 @@ jobs:
           BUILDER_REPO: ${{ github.workspace }}/builder
         run: bash builder/scripts/prepare-build.sh
 
+      # The image trusts the key that signs its packages (base-files ships
+      # public-key.pem). Without the secret, OpenWrt makes a key per build.
+      - name: Point the image at its kmod feed
+        working-directory: openwrt
+        env:
+          APK_SIGN_KEY: ${{ secrets.APK_SIGN_KEY }}
+          OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$APK_SIGN_KEY" ]]; then
+            (umask 077; printf '%s\n' "$APK_SIGN_KEY" >private-key.pem)
+          fi
+          # The OpenWrt target feed serves another kernel's modules; this
+          # build's own target packages replace it.
+          url="https://${OWNER,,}.github.io/${REPO_NAME}/${TAG}/${DEVICE}/packages.adb"
+          mkdir -p files/etc/uci-defaults
+          printf '%s\n' "sed -i 's|^.*/targets/.*/packages/packages\\.adb\$|${url}|' /etc/apk/repositories.d/distfeeds.list" \
+            >files/etc/uci-defaults/997-kmod-feed
+
       - name: Set reproducible-build env
         working-directory: openwrt
         run: |
@@ -266,9 +286,11 @@ jobs:
         env:
           CCACHE_COMPILERCHECK: content
           CCACHE_MAXSIZE: 4G
+        # A module that fails to build is left out of the feed; it is not in
+        # the image (=m), so it does not stop the release.
         run: |
           set -euo pipefail
-          make -j"$(nproc)" || make -j1 V=s
+          make -j"$(nproc)" IGNORE_ERRORS=m || make -j1 V=s IGNORE_ERRORS=m
           staging_dir/host/bin/ccache -s
 
       - name: Upload images
@@ -301,6 +323,25 @@ jobs:
             echo "## ${DEVICE}"
             echo "- assets: ${#assets[@]}"
           } >>"$GITHUB_STEP_SUMMARY"
+
+      # The target packages (kernel, every kmod) and their signed index, at
+      # the path the image's uci-defaults points to. The feed job publishes it.
+      - name: Stage kmod feed
+        run: |
+          set -euo pipefail
+          pkgs="$(dirname "$(find openwrt/bin/targets -name sha256sums)")/packages"
+          [[ -s "$pkgs/packages.adb" ]] || { echo "::error::no packages.adb in $pkgs"; exit 1; }
+          mkdir -p "feed/$TAG"
+          mv "$pkgs" "feed/$TAG/$DEVICE"
+          echo "- feed: $(find "feed/$TAG/$DEVICE" -name '*.apk' | wc -l) packages, $(du -sh "feed/$TAG/$DEVICE" | cut -f1)" >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Upload kmod feed
+        uses: actions/upload-artifact@v7
+        with:
+          name: feed-${{ matrix.device }}
+          path: feed
+          retention-days: 3
+          compression-level: 0
 
   publish:
     name: Publish release
@@ -344,3 +385,47 @@ jobs:
         run: |
           set -euo pipefail
           PREFIX="$RELEASE_PREFIX" bash scripts/prune-releases.sh
+
+  feed:
+    name: Publish kmod feeds
+    needs: [release, prune]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.release.outputs.tag }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: feed-*
+          merge-multiple: true
+          path: new
+
+      # gh-pages holds one directory per release tag and lives as long as the
+      # release. One orphan commit, so pruned feeds leave the repository too.
+      - name: Push to gh-pages
+        run: |
+          set -euo pipefail
+          url="https://github.com/$GITHUB_REPOSITORY"
+          if git ls-remote --exit-code --heads "$url" gh-pages >/dev/null; then
+            git clone -q --depth 1 --branch gh-pages "$url" site
+          else
+            git init -q -b gh-pages site
+          fi
+          mapfile -t keep < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName')
+          shopt -s nullglob
+          for d in site/*/; do
+            printf '%s\n' "${keep[@]}" | grep -qxF "$(basename "$d")" || rm -rf "$d"
+          done
+          cp -a new/. site/
+          touch site/.nojekyll
+
+          cd site
+          git checkout -q --orphan feeds
+          git add -A
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Publish the kmod feeds of $TAG"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" feeds:gh-pages
