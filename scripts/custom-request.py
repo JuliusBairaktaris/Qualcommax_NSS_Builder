@@ -94,7 +94,15 @@ def main():
         fail(f"The first-boot script is limited to {MAX_SCRIPT} bytes.")
 
     base = [p for p in entry["packages"] if p not in ("kernel", "libc") and p not in remove]
-    packages = " ".join(base + [p for p in add if p not in base] + [f"-{p}" for p in remove])
+    # The ImageBuilder adds the profile's default packages to any list, also
+    # those the release's config left out (dropbear, the mbedtls variants),
+    # which it never built. Leave out every default the image does not carry.
+    prof = fetch(f"{site}/{tag}/{group}/profiles.json")
+    defaults = prof["default_packages"] + prof["profiles"][profile].get("device_packages", [])
+    dropped = [p for p in defaults if not p.startswith("-") and p not in entry["packages"]
+               and p not in add and p not in remove]
+    packages = " ".join(base + [p for p in add if p not in base]
+                        + [f"-{p}" for p in remove + dropped])
 
     if script:
         with open(os.environ["UCI_DEFAULTS_OUT"], "w") as fh:
