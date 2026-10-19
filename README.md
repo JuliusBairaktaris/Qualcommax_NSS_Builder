@@ -55,7 +55,7 @@ in the [forum thread](https://forum.openwrt.org/t/qualcommax-nss-build/148529).
 | Routing, NAT | PPE through the fw4 flowtable: IPv4/IPv6, NAT, PPPoE, 802.1Q VLAN |
 | Bridge, multicast | PPE through switchdev, with IGMP/MLD snooping; kernel multicast routing enabled |
 | SQM | PPE shaper through tc offload: `hw_ppe.qos` in `sqm-scripts`, `luci-app-sqm` |
-| QoS classes | `qca-ppe-qos`, `luci-app-ppe-qos`, `dcb`, `tc`, `ethtool-full`, `devlink` |
+| QoS classes | `qca-ppe-qos`, `luci-app-qca-ppe-qos`, `dcb`, `tc`, `ethtool-full`, `devlink` |
 | Wi-Fi | `kmod-nss-wifi-drv`: the ath11k data path on the NSS cores, on by default |
 | Base | OpenSSH instead of Dropbear, OpenSSL, LuCI over HTTPS, BCP38, `htop`, `iperf3`, `curl` |
 | Kernel modules | USB storage, TUN and WireGuard built in; ramoops crash logs archived to `/root/pstore` |

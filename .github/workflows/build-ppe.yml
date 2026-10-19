@@ -32,7 +32,7 @@ env:
   # VARIANT picks files.<variant> and patches/feeds/<variant>.
   VARIANT: ppe
   COMMON: common-ppe
-  # The luci feed comes from the fork carrying luci-app-ppe-qos (openwrt/luci
+  # The luci feed comes from the fork carrying luci-app-qca-ppe-qos (openwrt/luci
   # PR 8965); prepare-build.sh swaps it in for the default luci feed.
   FEEDS: "src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos"
 

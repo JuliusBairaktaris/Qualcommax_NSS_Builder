@@ -26,7 +26,7 @@ env:
 
 Each `FEEDS` line is added to `feeds.conf`. A line with the name of an
 existing feed replaces it, which is how the luci fork with
-`luci-app-ppe-qos` stands in for the default luci feed. A new feed is not
+`luci-app-qca-ppe-qos` stands in for the default luci feed. A new feed is not
 bundled whole: only the packages selected in the config are built.
 
 ## Groups
