@@ -82,7 +82,7 @@ def main():
 
     boards = fetch(f"{site}/{tag}/boards.json")
     entry = next((b for b in boards if b["group"] == group and b["profile"] == profile), None)
-    if not entry:
+    if not entry or not entry["packages"]:
         fail(f"{tag} has no image for {group}/{profile}.")
 
     add = pkgs(f.get("add", ""), "Add packages")
@@ -100,8 +100,10 @@ def main():
     prof = fetch(f"{site}/{tag}/{group}/profiles.json")
     defaults = prof["default_packages"] + prof["profiles"][profile].get("device_packages", [])
     dropped = [p for p in defaults if not p.startswith("-") and p not in entry["packages"]
-               and p not in add and p not in remove]
-    packages = " ".join(base + [p for p in add if p not in base]
+               and p not in remove]
+    # custom.yml tags the snapshot feeds, so only added packages and their
+    # dependencies may come from them, never a newer copy of the image's own.
+    packages = " ".join(base + [f"{p}@snapshot" for p in add if p not in base]
                         + [f"-{p}" for p in remove + dropped])
 
     if script:

@@ -59,11 +59,19 @@ jobs:
             install -D -m 0755 "$RUNNER_TEMP/99-custom" ib/files/etc/uci-defaults/99-custom
           fi
           # Everything the release built is local; packages it did not build
-          # come from the OpenWrt snapshot feeds.
+          # come from the OpenWrt snapshot feeds. A standalone ImageBuilder
+          # ignores the repositories file. The tag keeps the feeds to the
+          # packages the request adds (custom-request.py) and their
+          # dependencies, so they cannot replace the release's own.
+          sed -i 's/^CONFIG_IB_STANDALONE=y$/# CONFIG_IB_STANDALONE is not set/' ib/.config
           arch=$(sed -n 's/^CONFIG_TARGET_ARCH_PACKAGES="\(.*\)"/\1/p' ib/.config)
-          for feed in packages luci routing telephony video; do
-            echo "https://downloads.openwrt.org/snapshots/packages/${arch}/${feed}/packages.adb" >>ib/repositories
-          done
+          target=$(sed -n 's/^CONFIG_TARGET_BOARD="\(.*\)"/\1/p' ib/.config)/$(sed -n 's/^CONFIG_TARGET_SUBTARGET="\(.*\)"/\1/p' ib/.config)
+          {
+            for feed in base packages luci routing telephony video; do
+              echo "@snapshot https://downloads.openwrt.org/snapshots/packages/${arch}/${feed}/packages.adb"
+            done
+            echo "@snapshot https://downloads.openwrt.org/snapshots/targets/${target}/packages/packages.adb"
+          } >>ib/repositories
 
       - name: Build the image
         working-directory: ib
@@ -73,7 +81,8 @@ jobs:
         run: |
           set -euo pipefail
           make image PROFILE="$PROFILE" PACKAGES="$PACKAGES" FILES=files \
-            EXTRA_IMAGE_NAME="custom${ISSUE}" BIN_DIR="$GITHUB_WORKSPACE/out"
+            EXTRA_IMAGE_NAME="custom${ISSUE}" BIN_DIR="$GITHUB_WORKSPACE/out" 2>&1 |
+            tee "$RUNNER_TEMP/build.log"
           ls -l "$GITHUB_WORKSPACE/out"
 
       - name: Publish and answer
@@ -117,6 +126,10 @@ jobs:
             msg="The request was not built: ${ERROR}"
           else
             msg="The build failed. The log is at ${run}; a package that does not exist or conflicts is the usual cause."
+            # apk's own reason names the packages to change.
+            why=$(sed -n '/^ERROR: unable to select packages/,/^make/{/^make/!p}' \
+              "$RUNNER_TEMP/build.log" 2>/dev/null | head -n 60 || true)
+            [[ -z "$why" ]] || msg+=$'\n\n```\n'"${why}"$'\n```'
           fi
           gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body "$msg"
           gh issue close "$ISSUE" --repo "$GITHUB_REPOSITORY" --reason "not planned"
