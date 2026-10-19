@@ -26,125 +26,27 @@ How the offload works, how to check it and what is not covered is in the
 
 ## Install
 
-Pick your router in the [image picker](https://ppenss.github.io/),
-or download `openwrt-qualcommax-<subtarget>-<board>-squashfs-sysupgrade.bin`
-from a [release](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/releases),
-and flash it in LuCI (System → Backup / Flash Firmware) or over ssh:
+Find your router on **[ppenss.github.io](https://ppenss.github.io/)**. It
+links the sysupgrade image of each board, builds custom images with
+packages added or left out, lists the kernel modules of each release and
+explains updates. The images are also on the
+[releases](https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder/releases)
+page.
 
-```sh
-sysupgrade -n /tmp/openwrt-qualcommax-ipq807x-xiaomi_ax3600-squashfs-sysupgrade.bin
-```
+There is no factory image. Install stock OpenWrt from its
+[device page](https://openwrt.org/toh/start) first, then flash the
+sysupgrade image in LuCI (System → Backup / Flash Firmware). After a fresh
+install, Wi-Fi is off and has no key.
 
-There is no factory image. The router must already run OpenWrt; install
-stock OpenWrt first from its [device page](https://openwrt.org/toh/start).
-
-| Release | Use it for |
-|---|---|
-| `ppe-nss-*` | The default. NSS firmware 12.5 (`NSS.FW.12.5-210-HK.R` on IPQ807x, `NSS.FW.12.5-210-CP.R` on IPQ60xx) and 11.4.0.5, the last line that accepts an 802.11s mesh interface. The images boot 12.5; `uci set nss-wifi.general.firmware=11.4; uci commit nss-wifi; reboot` switches to 11.4. |
-| `ppe-nss-mesh-*` | Earlier mesh builds on 11.4. No longer built: the `ppe-nss` images carry both lines. |
-| `ppe-offload-test` | One prerelease, replaced in place. OpenWrt main with the PPE offload from the `ppe-flow-offload` branch and no NSS. For testing only. |
-| `edma-nss-*` | The archived vendor NSS stack. No longer built. |
-
-Each release names the source commit it was built from and carries a
-`config-<group>.buildinfo` with the full configuration. The two newest
-releases of each kind are kept.
-
-After a fresh install, Wi-Fi is off and has no key. Connect by cable, set
-an SSID and key under Network → Wireless, and enable the radios.
-
-<details>
-<summary>Boards built: 41 IPQ807x, 24 IPQ60xx</summary>
-
-Boards are built in groups by subtarget and RAM, because the ath11k memory
-profile is fixed at build time for the whole image.
-
-| Group | RAM | Boards |
-|---|---|---|
-| `xiaomi_ax3600` | 512 MB | Xiaomi AX3600 (adds its wireless defaults and an SQM template) |
-| `ipq807x-1g` | 1 GB+ | Aliyun AP8220, Arcadyan AW1000, Asus RT-AX89X, Buffalo WXR-5950AX12, Dynalink DL-WRX36, Edgecore EAP102, Linksys HomeWRK, Linksys MX4200 v2, Linksys MX4300, Linksys MX5300, Linksys MX8500, Netgear RAX120v2, Netgear RBR750, Netgear RBR850, Netgear RBS750, Netgear RBS850, Netgear SXR80, Netgear SXS80, Netgear WAX620, Netgear WAX630, prpl Haze, QNAP 301w, Spectrum SAX1V1K, TCL LINKHUB HH500V, TP-Link Deco X80-5G, TP-Link EAP620 HD v1, TP-Link EAP660 HD v1, Xiaomi AX9000, Yuncore AX880, Zbtlink ZBT-Z800AX, Zyxel NBG7815, Zyxel NWA110AX, Zyxel NWA210AX |
-| `ipq807x-512m` | 512 MB | CMCC RM2-6, Compex WPQ873, Edimax CAX1800, Linksys MX4200 v1, Redmi AX6, ZTE MF269 |
-| `ipq807x-256m` | 256 MB | Netgear WAX218 |
-| `ipq60xx-1g` | 1 GB+ | Cambium Networks XE3-4, JDCloud RE-CS-02, JDCloud RE-CS-07, Link NN6000 v1, Link NN6000 v2, TP-Link EAP620 HD v2, TP-Link EAP620 HD v3, TP-Link EAP623-Outdoor HD v1 |
-| `ipq60xx-512m` | 512 MB | 8devices Mango DVK, Alfa Network AP120C-AX, GL.iNet GL-AX1800 (Flint), GL.iNet GL-AXT1800 (Slate AX), JDCloud RE-SS-01, Linksys MR7350, Linksys MR7500, Netgear RBR350, Netgear RBS350, Netgear WAX214, Netgear WAX610, Netgear WAX610Y, Qihoo 360V6, TP-Link EAP610-Outdoor, TP-Link EAP625-Outdoor HD v1, Yuncore FAP650 |
+Images update themselves with `ppe-update` (System → Firmware update),
+keeping settings and added packages. Kernel modules install with
+`apk add kmod-<name>` from the release's own feed; the official OpenWrt
+kmods do not load. Coming from an `edma-nss` image, follow
+[Migrating from edma-nss](https://github.com/JuliusBairaktaris/openwrt-ppe-nss/wiki/Migrating-from-edma-nss).
 
 The Xiaomi AX3600 is the test board. The other boards are built but not
 tested by the maintainer, who has no IPQ60xx hardware. Reports are welcome
 in the [forum thread](https://forum.openwrt.org/t/qualcommax-nss-build/148529).
-The MikroTik Chateau 5G R17 ax is not built because its device tree has no
-NSS node.
-
-</details>
-
-## Offload on and off
-
-Wired offload is the fw4 flowtable with hardware offload, turned on at
-first boot (Network → Firewall → Hardware flow offloading).
-`grep -c HW_OFFLOAD /proc/net/nf_conntrack` counts the connections in the
-PPE.
-
-The NSS Wi-Fi offload is on by default. Turn it off with:
-
-```sh
-uci set nss-wifi.general.offload='0'; uci commit nss-wifi; reboot
-```
-
-While the offload starts, the service keeps a marker in
-`/etc/nss-wifi.pending` and removes it two minutes later. A boot that hangs
-leaves the marker, and the next boot stays on the host Wi-Fi path until it
-is deleted. `logread -e nss-wifi` shows the bring-up.
-
-## Kernel modules
-
-Each image is set up to install kernel modules built with its own kernel:
-
-```sh
-apk update && apk add kmod-<name>
-```
-
-The feed belongs to the release the image came from and is removed with it.
-After a sysupgrade the image points at its new feed. The image picker lists
-the modules of each release.
-
-## Custom images
-
-The [image picker](https://ppenss.github.io/)
-builds an image with packages added or left out and an optional first-boot
-script. The request opens as an issue here; the `Custom image` workflow
-builds it from the release's ImageBuilder and posts the download on the
-issue. Custom downloads are deleted after seven days. Packages that the
-release did not build come from the OpenWrt snapshot feeds.
-
-## Updates
-
-`ppe-update` moves an image to the newest release of this repository,
-keeping the settings and installing the packages added on top of the image
-again after the reboot:
-
-```sh
-ppe-update check     # is there a newer release?
-ppe-update update    # download, verify and flash it
-```
-
-In LuCI it is System → Firmware update, which also turns on the automatic
-update: once a day it installs a release that has been out for a day.
-
-```sh
-uci set ppe-update.main.auto='1'; uci commit ppe-update; /etc/init.d/ppe-update reload
-```
-
-## Coming from edma-nss
-
-Upgrade with a normal sysupgrade; settings may be kept. Nothing is migrated
-automatically; the [migration page](https://github.com/JuliusBairaktaris/openwrt-ppe-nss/wiki/Migrating-from-edma-nss)
-has every step. In short:
-
-- Turn hardware flow offloading on in Network → Firewall. The edma-nss
-  images set it to off, and the first-boot default does not override a
-  kept setting.
-- The `nss` and `nssqos` configs are no longer read.
-- Set the SQM script to `hw_ppe.qos` in LuCI.
-- `nssqos` DSCP rules are not carried over. Set up queue classifiers under
-  Network → PPE QoS.
 
 ## What ships
 
@@ -163,11 +65,9 @@ First-boot defaults (applied once, kept across upgrades): WAN zone input
 set to DROP, BCP38 on `wan`, LuCI redirected to HTTPS, and the router
 serving NTP to the LAN (DHCP option 42).
 
-Kernel modules from the official OpenWrt feeds do not load on these images,
-because they use their own kernel. Build what you need into the image.
 Routed multicast (IPTV) needs a daemon such as `igmpproxy`, which is not
-bundled; [docs/CUSTOMIZE.md](docs/CUSTOMIZE.md#routed-multicast) shows how
-to add it.
+bundled: add it in the image picker, or see
+[docs/CUSTOMIZE.md](docs/CUSTOMIZE.md#routed-multicast).
 
 ## Build it yourself
 
