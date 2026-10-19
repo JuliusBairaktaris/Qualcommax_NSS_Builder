@@ -80,9 +80,17 @@ for r in json.load(open(raw)):
             if not img:
                 continue
             man = os.path.join(g, p["image_prefix"] + ".manifest")
+            dev = []
+            if not os.path.isfile(man):
+                # Per-device rootfs builds write one manifest for the group;
+                # each image adds its device packages to it.
+                man = os.path.join(g, p["image_prefix"].removesuffix("-" + pid) + ".manifest")
+                dev = p.get("device_packages", [])
             pkgs = []
             if os.path.isfile(man):
-                pkgs = sorted(l.split(" - ")[0] for l in open(man) if " - " in l)
+                pkgs = {l.split(" - ")[0] for l in open(man) if " - " in l}
+                pkgs |= {d for d in dev if not d.startswith("-")}
+                pkgs = sorted(pkgs - {d[1:] for d in dev if d.startswith("-")})
             for board in p["supported_devices"]:
                 boards.append({
                     "board": board, "group": group, "profile": pid,
