@@ -276,7 +276,7 @@ jobs:
             echo
             echo "Stock OpenWrt plus LuCI, carrying the in-kernel \`qca_edma\`/\`qca_ppe\`"
             echo "datapath with netfilter flowtable offload into the PPE flow engine,"
-            echo "hardware SQM (\`hw_ppe.qos\`) and the \`ppe-qos\` queue classifiers."
+            echo "hardware SQM (\`hw_ppe.qos\`) and the \`qca-ppe-qos\` queue classifiers."
             echo "No NSS: this is the host-driven offload track."
             echo
             echo "- **Source**: \`${UPSTREAM_REPO}@${SHA}\` (branch \`${UPSTREAM_REF}\`)"

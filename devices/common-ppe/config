@@ -6,7 +6,7 @@
 # Built from the ppe-offload branch, which carries the whole offload as one
 # checkout: the switch series (PR openwrt#24806) plus the four features that
 # each need a pending kernel patch (openwrt#25078, #25079, #25080, #25081) and
-# the ppe-qos package (openwrt#25082). The offload lives in the kernel driver,
+# the qca-ppe-qos package (openwrt#25082). The offload lives in the kernel driver,
 # so there is no NSS feed and no CONFIG_NSS_* symbol anywhere here.
 #
 # prepare-build.sh concatenates this with devices/<device>/config (which is just
@@ -33,13 +33,13 @@ CONFIG_DEVEL=y
 CONFIG_PACKAGE_luci=y
 CONFIG_PACKAGE_luci-app-firewall=y
 
-## The offload's levers. ppe-qos is in-tree on the branch; luci-app-ppe-qos
+## The offload's levers. qca-ppe-qos is in-tree on the branch; luci-app-ppe-qos
 ## comes from the luci feed, which the workflow points at the fork carrying it
 ## (openwrt/luci PR 8965); sqm-scripts is repinned by patches/feeds/ppe/ to the
 ## fork whose hw_ppe.qos drives the hardware shaper.
 CONFIG_PACKAGE_sqm-scripts=y
 CONFIG_PACKAGE_luci-app-sqm=y
-CONFIG_PACKAGE_ppe-qos=y
+CONFIG_PACKAGE_qca-ppe-qos=y
 CONFIG_PACKAGE_luci-app-ppe-qos=y
 ## The tc userspace and the sched kmods the PPE offloads are driven from;
 ## OpenWrt ships them as optional packages, so the images select them here.
