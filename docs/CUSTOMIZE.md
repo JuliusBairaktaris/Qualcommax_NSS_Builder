@@ -93,7 +93,7 @@ Four layers are copied into the image, later ones winning:
 3. `devices/<group>/files/`: one group
 4. `devices/<group>/files.<variant>/`: one group, one variant
 
-Paths are kept. `etc/ssh/sshd_config` is set to mode 0600.
+Paths are kept.
 `etc/uci-defaults/*` scripts run once on first boot and after each
 sysupgrade; write them so that they do not overwrite a setting the user
 changed. `etc/rc.local` runs on every boot.

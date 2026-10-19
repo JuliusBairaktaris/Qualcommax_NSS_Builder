@@ -156,9 +156,5 @@ for src in "$COMMON_DIR/files" "$COMMON_DIR/files.$VARIANT" \
   fi
 done
 
-# Lock down sshd_config if shipped.
-if [[ -f files/etc/ssh/sshd_config ]]; then
-  chmod 0600 files/etc/ssh/sshd_config
-fi
 
 log::info "Build environment ready for variant '$VARIANT' on device '$DEVICE'."
