@@ -8,8 +8,9 @@
 #   ppe-update auto      what cron runs: update when enabled and the release is old enough
 #   ppe-update restore   reinstall the packages added on top of the image (runs after boot)
 #
-# Packages installed on top of the image are written to /etc/ppe-update/packages
-# before the flash and installed again from the new release's feeds after it.
+# Packages installed on top of the image, and those removed from it, are written
+# to /etc/ppe-update/packages before the flash and applied again from the new
+# release's feeds after it.
 
 . /etc/ppe-release 2>/dev/null
 
@@ -53,9 +54,16 @@ newer() {
 	[ "$LATEST" != "$TAG" ] && [ "$(printf '%s\n%s\n' "$TAG" "$LATEST" | sort | tail -n1)" = "$LATEST" ]
 }
 
-# World entries the new image does not install by itself.
+# World entries the new image does not install by itself, and the packages of
+# this image that were removed, as conflicts so the new image drops them too.
+# Repository tags go: the ImageBuilder's @snapshot is not a feed on the router.
 extras() {
-	sed 's/[<>=~].*//' /etc/apk/world | sort -u | grep -vxF -f "$WORK/manifest"
+	sed 's/[@<>=~].*//' /etc/apk/world | sort -u >"$WORK/world"
+	{
+		grep -vxF -f "$WORK/manifest" "$WORK/world"
+		sed 's/[@<>=~].*//' /rom/etc/apk/world 2>/dev/null | grep -v '^!' |
+			grep -vxF -f "$WORK/world" | sed 's/^/!/'
+	} | sort -u
 }
 
 cmd_status() {
@@ -76,7 +84,7 @@ cmd_check() {
 	if newer; then
 		echo "update available: $TAG -> $LATEST ($IMAGE)"
 		x=$(extras | tr '\n' ' ')
-		[ -n "$x" ] && echo "reinstalled after the update: $x"
+		[ -n "$x" ] && echo "kept after the update: $x"
 		return 0
 	fi
 	echo "up to date: $TAG"

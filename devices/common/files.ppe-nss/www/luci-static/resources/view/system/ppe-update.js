@@ -48,7 +48,7 @@ return view.extend({
 		if (st.latest) {
 			rows.push([ _('Newest release'), '%s (%s)'.format(st.latest, fmtTime(st.latest_time)) ]);
 			if (st.extras)
-				rows.push([ _('Reinstalled after the update'), st.extras ]);
+				rows.push([ _('Kept after the update'), st.extras ]);
 		}
 		else if (st.error) {
 			rows.push([ _('Newest release'), st.error ]);
@@ -57,7 +57,7 @@ return view.extend({
 		var status = E('div', { 'class': 'cbi-section' }, [
 			E('h3', _('Firmware update')),
 			E('p', { 'class': 'cbi-section-descr' },
-				_('Installs the newest image of the builder this router came from. Settings stay, and packages added on top of the image are installed again after the reboot.')),
+				_('Installs the newest image of the builder this router came from. Settings stay, and packages added to or removed from the image stay that way after the reboot.')),
 			E('table', { 'class': 'table' }, rows.map(function(r) {
 				return E('tr', { 'class': 'tr' }, [ E('td', { 'class': 'td left', 'width': '33%' }, r[0]), E('td', { 'class': 'td left' }, r[1]) ]);
 			})),

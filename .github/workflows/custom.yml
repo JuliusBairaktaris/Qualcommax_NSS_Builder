@@ -47,6 +47,7 @@ jobs:
         env:
           TAG: ${{ steps.req.outputs.tag }}
           GROUP: ${{ steps.req.outputs.group }}
+          REMOVE: ${{ steps.req.outputs.remove }}
         run: |
           set -euo pipefail
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
@@ -55,6 +56,15 @@ jobs:
           tar -C ib --strip-components=1 -xf "$RUNNER_TEMP/imagebuilder-${GROUP}.tar.zst"
           mkdir -p ib/files
           tar -C ib/files -xzf "$RUNNER_TEMP/files-${GROUP}.tar.gz"
+          # The @snapshot tag below is not a feed on the router, where apk
+          # refuses every change while the world names it. The removed
+          # packages stay in the world as conflicts, so ppe-update keeps
+          # them out of the release images it flashes later.
+          mkdir -p ib/files/etc/uci-defaults
+          {
+            echo "sed -i 's/@snapshot//' /etc/apk/world"
+            for p in $REMOVE; do echo "echo '!$p' >>/etc/apk/world"; done
+          } >ib/files/etc/uci-defaults/98-custom-world
           if [[ -f "$RUNNER_TEMP/99-custom" ]]; then
             install -D -m 0755 "$RUNNER_TEMP/99-custom" ib/files/etc/uci-defaults/99-custom
           fi
@@ -110,7 +120,7 @@ jobs:
             echo "- [package manifest](${base}/$(find . -maxdepth 1 -name '*.manifest' -printf '%f\n' | head -n1))"
             echo
             echo "Flash it with sysupgrade over an existing OpenWrt install. The download goes away after ${KEEP_DAYS} days."
-            echo "Later updates: LuCI System > Firmware update, or \`ppe-update check\`; packages you added are installed again after each update."
+            echo "Later updates: LuCI System > Firmware update, or \`ppe-update check\`; packages you added or removed stay that way after each update."
           } >comment.md
           gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body-file comment.md
           gh issue close "$ISSUE" --repo "$GITHUB_REPOSITORY" --reason completed

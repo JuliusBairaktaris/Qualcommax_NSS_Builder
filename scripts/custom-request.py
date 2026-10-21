@@ -2,7 +2,7 @@
 """Turn a custom-build issue into ImageBuilder arguments.
 
 Reads the issue from $GITHUB_EVENT_PATH and the release indexes from
-$SITE_URL, writes tag, group, profile, packages and title to $GITHUB_OUTPUT
+$SITE_URL, writes tag, group, profile, packages, remove and title to $GITHUB_OUTPUT
 and the requested uci-defaults script to $UCI_DEFAULTS_OUT. Every field is
 untrusted: anything that does not validate stops the build with a reason,
 which is printed for the issue comment.
@@ -113,7 +113,7 @@ def main():
     title = entry["titles"][0] if entry["titles"] else profile
     with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
         fh.write(f"tag={tag}\ngroup={group}\nprofile={profile}\n"
-                 f"packages={packages}\ntitle={title}\n"
+                 f"packages={packages}\nremove={' '.join(remove)}\ntitle={title}\n"
                  f"summary=+{len(add)} -{len(remove)} packages"
                  f"{', with a first-boot script' if script else ''}\n")
     print(f"{tag} {group}/{profile}: +{add} -{remove}")
