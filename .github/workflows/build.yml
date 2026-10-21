@@ -30,7 +30,7 @@ env:
   UPSTREAM_REPO: JuliusBairaktaris/openwrt-ppe-nss
   UPSTREAM_REF: ppe-nss
   NSS_REPO: JuliusBairaktaris/nss-packages
-  NSS_REF: edma-nss
+  NSS_REF: ppe-nss
   # The picker and the feeds move here once the PAGES_DEPLOY_KEY secret holds
   # a deploy key with write access to PAGES_REPO.
   PAGES_REPO: ppenss/ppenss.github.io
@@ -41,7 +41,7 @@ env:
   # nss-firmware, and the luci fork carrying luci-app-qca-ppe-qos (openwrt/luci
   # PR 8965), which prepare-build.sh swaps in for the default luci feed.
   FEEDS: |
-    src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss
+    src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;ppe-nss
     src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos
 
 jobs:

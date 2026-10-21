@@ -78,7 +78,7 @@ git clone --branch ppe-nss https://github.com/JuliusBairaktaris/openwrt-ppe-nss 
 git clone https://github.com/JuliusBairaktaris/Qualcommax_NSS_Builder builder
 cd openwrt
 cp feeds.conf.default feeds.conf
-echo "src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss" >> feeds.conf
+echo "src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;ppe-nss" >> feeds.conf
 sed -i 's|^src-git luci .*|src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos|' feeds.conf
 ./scripts/feeds update -a && ./scripts/feeds install -a
 patch -d feeds/packages -p1 < ../builder/patches/feeds/ppe-nss/packages/0001-*.patch   # hw_ppe.qos

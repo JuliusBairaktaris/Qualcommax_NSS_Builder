@@ -20,7 +20,7 @@ flowchart LR
 
 | Job | Script | Does |
 |---|---|---|
-| `check` | `scripts/check-updates.sh` | Resolves the `ppe-nss` and `edma-nss` refs to commits. On a scheduled run it skips the build when the latest release already records both. Push and manual runs always build. |
+| `check` | `scripts/check-updates.sh` | Resolves the `ppe-nss` refs of both repositories to commits. On a scheduled run it skips the build when the latest release already records both. Push and manual runs always build. |
 | `stats` | `scripts/download-stats.sh` | Updates the download badge on the `stats` branch, including releases already pruned. |
 | `release` | | Opens a draft release and writes its notes, including the source commits. |
 | `build` | `scripts/prepare-build.sh` | One job per group. Checks out the source at the resolved commit, sets up feeds, patches, config and overlays, restores the caches, builds, and uploads the sysupgrade images, `sha256sums-<group>.txt`, `config-<group>.buildinfo`, the standalone ImageBuilder `imagebuilder-<group>.tar.zst` and the overlay `files-<group>.tar.gz` into the draft, and its target packages, `profiles.json` and manifests as a workflow artifact. |

@@ -15,12 +15,12 @@ env:
   UPSTREAM_REPO: JuliusBairaktaris/openwrt-ppe-nss   # OpenWrt source tree
   UPSTREAM_REF: ppe-nss                               # branch, tag or SHA
   NSS_REPO: JuliusBairaktaris/nss-packages            # nss-firmware feed
-  NSS_REF: edma-nss
+  NSS_REF: ppe-nss
   VARIANT: ppe-nss                                    # selects files.<variant> and patches/*/<variant>
   RELEASE_PREFIX: ppe-nss                             # tag = <prefix>-<timestamp>-<run id>
   KEEP: "2"                                           # newest releases kept per prefix
   FEEDS: |
-    src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;edma-nss
+    src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;ppe-nss
     src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos
 ```
 
@@ -115,7 +115,7 @@ on:
     - cron: "0 */2 * * *"
 ```
 
-A scheduled run builds only when the `ppe-nss` or `edma-nss` commit
+A scheduled run builds only when the `ppe-nss` commit of either repository
 differs from the one the latest release records. A push to `devices/`,
 `scripts/` or the workflow, and a manual run, always build. Remove the
 `schedule:` block for manual builds only.
