@@ -1,3 +1,0 @@
-# PPE test images for every ipq807x board.
-
-CONFIG_TARGET_qualcommax_ipq807x=y

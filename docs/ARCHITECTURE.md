@@ -5,7 +5,6 @@
 | Workflow | Builds | Release |
 |---|---|---|
 | `build.yml` | `ppe-nss` of openwrt-ppe-nss, six groups | `ppe-nss-*`, a new one per build |
-| `build-ppe.yml` | `ppe-flow-offload`, every board of each subtarget, no NSS | `ppe-offload-test`, one prerelease updated in place |
 | `lint.yml` | nothing | runs `actionlint`, `shellcheck` and `yamllint` on workflow and script changes |
 | `custom.yml` | one image per `[build]` issue, from a release's ImageBuilder | `custom-<issue>-<run>` prerelease, deleted after seven days |
 | `pages.yml` | nothing | republishes the image picker on `gh-pages` |
