@@ -19,6 +19,11 @@ const store = {
 };
 
 const state = { releases: [], tag: '', boards: [], entry: null, added: [], removed: new Set(), kmods: {} };
+// The image flavours, recommended first (DRAFT labels, public text: CLAUDE.md rule 9).
+const FLAVOURS = [
+  { prefix: 'ppe-daily', name: 'Daily (recommended)' },
+  { prefix: 'ppe-nss', name: 'NSS Wi-Fi offload' },
+];
 
 async function json(path) {
   const r = await fetch(path, { cache: 'no-cache' });
@@ -280,15 +285,29 @@ async function main() {
   $('dev-sha').addEventListener('click', () => navigator.clipboard?.writeText($('dev-sha').textContent));
   $('release').addEventListener('change', (ev) => loadRelease(ev.target.value));
 
+  // One flavour's releases into the release list, its newest one loaded.
+  const showFlavour = async (fl) => {
+    state.releases = fl.releases;
+    if (!fl.releases.length) throw new Error('no releases yet');
+    $('release').replaceChildren(...fl.releases.map((r) => el('option', {
+      value: r.tag, textContent: `${fmtDate(r.time)}${r.tag === fl.latest ? ' (newest)' : ''}`,
+    })));
+    $('release').value = fl.latest;
+    await loadRelease(fl.latest);
+  };
+
   try {
     const idx = await json('releases.json');
-    state.releases = idx.releases;
-    if (!idx.releases.length) throw new Error('no releases yet');
-    $('release').replaceChildren(...idx.releases.map((r) => el('option', {
-      value: r.tag, textContent: `${fmtDate(r.time)}${r.tag === idx.latest ? ' (newest)' : ''}`,
-    })));
-    $('release').value = idx.latest;
-    await loadRelease(idx.latest);
+    // An index written before the flavours existed has only the NSS releases.
+    const have = FLAVOURS.filter((f) => idx.flavours?.[f.prefix]?.releases.length);
+    if (!have.length) {
+      $('flavour').closest('label').hidden = true;
+      await showFlavour(idx);
+    } else {
+      $('flavour').replaceChildren(...have.map((f) => el('option', { value: f.prefix, textContent: f.name })));
+      $('flavour').addEventListener('change', (ev) => showFlavour(idx.flavours[ev.target.value]));
+      await showFlavour(idx.flavours[have[0].prefix]);
+    }
   } catch (err) {
     $('status').textContent = `The release list could not be loaded (${err.message}).`;
   }
