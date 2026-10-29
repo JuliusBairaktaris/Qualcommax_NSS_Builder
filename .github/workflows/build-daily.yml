@@ -1,0 +1,52 @@
+name: Build daily
+
+# The daily images: OpenWrt main with the qca_edma/qca_ppe datapath, the ath11k work, CAKE with
+# L4S marking for the offloaded flows and the host Wi-Fi fast path, from the ppe-wifi-offload
+# branch; no NSS. Every board of each subtarget in one group (the ath11k memory mode comes from
+# each board's device tree). sqm-scripts follows the fork's openwrt-build branch, so a
+# force-pushed PR branch does not break the build and a moved one triggers a rebuild.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'devices/common-ppe/**'
+      - 'devices/ppe-ipq807x/**'
+      - 'devices/ppe-ipq60xx/**'
+      - 'scripts/**'
+      - '.github/workflows/build-daily.yml'
+      - '.github/workflows/build-flavour.yml'
+  schedule:
+    - cron: "30 */2 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  ppe-daily:
+    uses: ./.github/workflows/build-flavour.yml
+    secrets: inherit
+    with:
+      upstream_repo: JuliusBairaktaris/openwrt-ppe-nss
+      upstream_ref: ppe-wifi-offload
+      sqm_repo: JuliusBairaktaris/sqm-scripts
+      sqm_ref: openwrt-build
+      variant: ppe-daily
+      release_prefix: ppe-daily
+      common: common-ppe
+      title: OpenWrt daily
+      devices: '["ppe-ipq807x", "ppe-ipq60xx"]'
+      # the luci fork carrying luci-app-qca-ppe-qos (openwrt/luci PR 8965)
+      feeds: |
+        src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos
+      # DRAFT, not yet approved by Julius (public text, CLAUDE.md rule 9).
+      notes: |
+        Pick the `...-<your device>-squashfs-sysupgrade.bin` asset and flash
+        it over an existing OpenWrt install. These are sysupgrade images only -
+        there is no factory image; install stock OpenWrt first if you are not
+        already running it.
+
+        OpenWrt main with the switch offload in the PPE (routing, NAT, PPPoE
+        and VLAN in hardware through the fw4 flowtable), on by default. Shape
+        the WAN with SQM's `ppe_cake.qos`: CAKE with L4S marking for the
+        offloaded flows. No NSS firmware: Wi-Fi runs on the host.

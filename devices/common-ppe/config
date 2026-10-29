@@ -1,0 +1,63 @@
+#
+# The daily images: OpenWrt main plus the qca_edma/qca_ppe datapath, the ath11k work, CAKE with
+# L4S marking for the offloaded flows (ppe_cake.qos) and the host Wi-Fi fast path, from the
+# ppe-wifi-offload branch of the openwrt-ppe-nss fork. The offload lives in the kernel driver,
+# so there is no NSS feed and no CONFIG_NSS_* symbol anywhere here. The branch itself turns on
+# hardware flow offload and DCB by default, and pins sqm-scripts to the fork that carries
+# ppe_cake.qos and hw_ppe.qos.
+#
+# prepare-build.sh concatenates this with devices/<device>/config (which is just the
+# subtarget) and runs `make defconfig`; COMMON=common-ppe in the workflow picks this file over
+# devices/common/config.
+#
+
+CONFIG_TARGET_qualcommax=y
+
+## Every board of the subtarget in one image set, the way the OpenWrt buildbot
+## builds a target. The ath11k memory profile stays at the target default, so
+## the per-RAM grouping the NSS images need does not apply.
+CONFIG_TARGET_MULTI_PROFILE=y
+CONFIG_TARGET_ALL_PROFILES=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+
+## Compiler cache, restored and saved by the workflow.
+CONFIG_CCACHE=y
+CONFIG_DEVEL=y
+
+## Sysupgrade-only, as with the NSS images: the audience already runs OpenWrt.
+# CONFIG_TARGET_ROOTFS_INITRAMFS is not set
+
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-app-firewall=y
+
+## The offload's levers. qca-ppe-qos is in-tree on the branch; luci-app-qca-ppe-qos
+## comes from the luci feed, which the workflow points at the fork carrying it
+## (openwrt/luci PR 8965); sqm-scripts is repinned by patches/feeds/ppe/ to the
+## fork whose hw_ppe.qos drives the hardware shaper.
+CONFIG_PACKAGE_sqm-scripts=y
+CONFIG_PACKAGE_luci-app-sqm=y
+## ppe_cake.qos: CAKE (with the L4S ce_threshold) on the driver's shaper devices, IFBs as
+## the fallback.
+CONFIG_PACKAGE_kmod-sched-cake=y
+CONFIG_PACKAGE_kmod-ifb=y
+## The offload's diagnostic report, and crash forensics in pstore.
+CONFIG_PACKAGE_ppe-help=y
+CONFIG_PACKAGE_kmod-ramoops=y
+CONFIG_PACKAGE_qca-ppe-qos=y
+CONFIG_PACKAGE_luci-app-qca-ppe-qos=y
+## The tc userspace and the sched kmods the PPE offloads are driven from;
+## OpenWrt ships them as optional packages, so the images select them here.
+CONFIG_PACKAGE_tc-tiny=y
+CONFIG_PACKAGE_kmod-sched-flower=y
+CONFIG_PACKAGE_kmod-sched-prio=y
+CONFIG_PACKAGE_kmod-sched-act-police=y
+CONFIG_PACKAGE_kmod-sched-act-pedit=y
+CONFIG_PACKAGE_kmod-sched-act-vlan=y
+CONFIG_PACKAGE_kmod-sched-mqprio=y
+CONFIG_PACKAGE_kmod-sched-ets=y
+CONFIG_PACKAGE_kmod-sched-red=y
+CONFIG_PACKAGE_kmod-sched-gred=y
+CONFIG_PACKAGE_dcb=y
+CONFIG_PACKAGE_ethtool-full=y
+CONFIG_PACKAGE_devlink=y
+CONFIG_KERNEL_DCB=y
