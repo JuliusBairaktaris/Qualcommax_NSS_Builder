@@ -1,11 +1,8 @@
 name: Build
 
-# Builds the ppe-nss images for every ipq807x and ipq60xx device, in six
-# groups:
-#   check (upstream moved?) -> draft release -> build each group -> publish -> prune -> feed
-# All build parameters live in the `env:` block below and in devices/<group>/config.
-# The vendor NSS stack (edma-nss releases) was last built from the
-# archive/edma-nss-final tag of this repo.
+# The ppe-nss images: OpenWrt from the ppe-nss branch with the vendor NSS Wi-Fi offload, for
+# every ipq807x and ipq60xx device group (build-flavour.yml does the work). The vendor NSS
+# stack (edma-nss releases) was last built from the archive/edma-nss-final tag of this repo.
 on:
   workflow_dispatch:
   push:
@@ -14,423 +11,43 @@ on:
       - 'devices/**'
       - 'scripts/**'
       - '.github/workflows/build.yml'
+      - '.github/workflows/build-flavour.yml'
   schedule:
     - cron: "0 */2 * * *"
 
-concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: false
-
 permissions:
-  contents: read
-
-env:
-  UPSTREAM_REPO: JuliusBairaktaris/openwrt-ppe-nss
-  UPSTREAM_REF: ppe-nss
-  NSS_REPO: JuliusBairaktaris/nss-packages
-  NSS_REF: ppe-nss
-  # The picker and the feeds move here once the PAGES_DEPLOY_KEY secret holds
-  # a deploy key with write access to PAGES_REPO.
-  PAGES_REPO: ppenss/ppenss.github.io
-  PAGES_URL: https://ppenss.github.io
-  VARIANT: ppe-nss
-  RELEASE_PREFIX: ppe-nss
-  KEEP: "2"                     # newest releases to retain, per prefix
-  # nss-firmware, and the luci fork carrying luci-app-qca-ppe-qos (openwrt/luci
-  # PR 8965), which prepare-build.sh swaps in for the default luci feed.
-  FEEDS: |
-    src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;ppe-nss
-    src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos
+  contents: write
 
 jobs:
-  check:
-    name: Check upstream
-    runs-on: ubuntu-26.04
-    timeout-minutes: 5
-    env:
-      GH_TOKEN: ${{ github.token }}
-      REPO: ${{ github.repository }}
-      EVENT_NAME: ${{ github.event_name }}
-    outputs:
-      upstream_sha: ${{ steps.check.outputs.upstream_sha }}
-      nss_sha: ${{ steps.check.outputs.nss_sha }}
-      need: ${{ steps.check.outputs.need }}
-    steps:
-      - uses: actions/checkout@v7
-      - id: check
-        run: bash scripts/check-updates.sh
+  ppe-nss:
+    uses: ./.github/workflows/build-flavour.yml
+    secrets: inherit
+    with:
+      upstream_repo: JuliusBairaktaris/openwrt-ppe-nss
+      upstream_ref: ppe-nss
+      nss_repo: JuliusBairaktaris/nss-packages
+      nss_ref: ppe-nss
+      variant: ppe-nss
+      release_prefix: ppe-nss
+      title: OpenWrt ppe-nss
+      # The ath11k memory profile is compile-time and image-wide, so boards share a build
+      # only when they share a profile.
+      devices: '["xiaomi_ax3600", "ipq807x-1g", "ipq807x-512m", "ipq807x-256m", "ipq60xx-1g", "ipq60xx-512m"]'
+      # nss-firmware, and the luci fork carrying luci-app-qca-ppe-qos (openwrt/luci PR 8965),
+      # which prepare-build.sh swaps in for the default luci feed.
+      feeds: |
+        src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;ppe-nss
+        src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos
+      notes: |
+        Pick the `...-<your device>-squashfs-sysupgrade.bin` asset and flash
+        it over an existing OpenWrt install. These are sysupgrade images only -
+        there is no factory image; install stock OpenWrt first if you are not
+        already running it.
 
-  stats:
-    name: Download stats
-    needs: check
-    runs-on: ubuntu-26.04
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      REPO: ${{ github.repository }}
-    steps:
-      - uses: actions/checkout@v7
-      # Refreshes the README badge every run; the prune job also folds in
-      # deleted releases before removing them.
-      - run: bash scripts/download-stats.sh
+        Wired offload runs in the PPE through the fw4 flowtable, switchdev
+        and tc. The NSS Wi-Fi offload is on by default; turn it off with
+        `uci set nss-wifi.general.offload=0; uci commit nss-wifi; reboot`.
 
-  release:
-    name: Create draft release
-    needs: check
-    if: needs.check.outputs.need == 'true'
-    runs-on: ubuntu-26.04
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
-      NSS_SHA: ${{ needs.check.outputs.nss_sha }}
-    outputs:
-      tag: ${{ steps.draft.outputs.tag }}
-    steps:
-      - id: draft
-        run: |
-          set -euo pipefail
-          date=$(date -u +%F)
-          stamp=$(date -u +%Y%m%dT%H%M%SZ)
-
-          # The build jobs upload into a draft, published only once every
-          # group has succeeded, so a partial image set never goes out.
-          draft() {
-            local prefix="$1" name="$2" tag
-            tag="${prefix}-${stamp}-${GITHUB_RUN_ID}"
-
-            {
-              echo "## OpenWrt Build — ${name}"
-              echo "- **Date**: $date"
-              echo "- **Variant**: \`${name}\`"
-              echo "- **Targets**: \`qualcommax/ipq807x\`, \`qualcommax/ipq60xx\`"
-              echo "- **Upstream**: \`${UPSTREAM_REPO}@${UPSTREAM_SHA}\`"
-              if [[ -n "${NSS_SHA}" ]]; then
-                echo "- **NSS**: \`${NSS_SHA}\`"
-              fi
-              echo "- **Trigger**: \`${GITHUB_EVENT_NAME}\`"
-              echo
-              echo "Pick the \`...-<your device>-squashfs-sysupgrade.bin\` asset and flash"
-              echo "it over an existing OpenWrt install. These are sysupgrade images only -"
-              echo "there is no factory image; install stock OpenWrt first if you are not"
-              echo "already running it."
-              echo
-              echo "Wired offload runs in the PPE through the fw4 flowtable, switchdev"
-              echo "and tc. The NSS Wi-Fi offload is on by default; turn it off with"
-              echo "\`uci set nss-wifi.general.offload=0; uci commit nss-wifi; reboot\`."
-              echo
-              echo "The images carry NSS firmware 12.5 and 11.4 and boot 12.5. 802.11s"
-              echo "mesh needs 11.4, the last line that accepts a mesh interface:"
-              echo "\`uci set nss-wifi.general.firmware=11.4; uci commit nss-wifi; reboot\`."
-            } >release_notes.md
-
-            # stdout is the tag; gh prints the release URL, which would
-            # otherwise end up in it.
-            gh release create "$tag" \
-              --repo "$GITHUB_REPOSITORY" \
-              --draft \
-              --title "OpenWrt ${name} $date" \
-              --notes-file release_notes.md >&2
-
-            printf '%s\n' "$tag"
-          }
-
-          echo "tag=$(draft "$RELEASE_PREFIX" "$VARIANT")" >>"$GITHUB_OUTPUT"
-
-  build:
-    name: Build ${{ matrix.device }}
-    needs: [check, release]
-    runs-on: ubuntu-26.04
-    timeout-minutes: 360
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        # One entry per devices/<name>/ directory. The memory-profile groups exist
-        # because the ath11k memory profile is compile-time and image-wide, so
-        # boards can only share a build when they share a profile.
-        device: [xiaomi_ax3600, ipq807x-1g, ipq807x-512m, ipq807x-256m, ipq60xx-1g, ipq60xx-512m]
-    env:
-      GH_TOKEN: ${{ github.token }}
-      DEVICE: ${{ matrix.device }}
-      TAG: ${{ needs.release.outputs.tag }}
-    steps:
-      - name: Install build dependencies
-        run: |
-          set -euo pipefail
-          # Pinned to the ubuntu-26.04 runner. OpenWrt main builds its own
-          # flex/bison/etc. host tools, so the host set is the minimal OpenWrt prerequisite list
-          # for Ubuntu 26.04. rsync is for prepare-build.sh's overlay step. Everything else
-          # (file, wget, unzip, gh) is preinstalled on the GitHub runner image.
-          # The runner image carries third-party apt repos the build has no use for,
-          # and their indexes intermittently fail to verify; the install below is the
-          # step that has to succeed.
-          sudo apt-get update || true
-          sudo apt-get install -y \
-            bzip2 g++ gawk gcc git glibc-source libncurses-dev make rsync
-
-      - name: Checkout OpenWrt source
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ env.UPSTREAM_REPO }}
-          ref: ${{ needs.check.outputs.upstream_sha }}
-          fetch-depth: 0
-          path: openwrt
-
-      - name: Checkout builder repo
-        uses: actions/checkout@v7
-        with:
-          path: builder
-
-      - name: Prepare build environment
-        env:
-          OPENWRT_DIR: ${{ github.workspace }}/openwrt
-          BUILDER_REPO: ${{ github.workspace }}/builder
-        run: bash builder/scripts/prepare-build.sh
-
-      # The image trusts the key that signs its packages (base-files ships
-      # public-key.pem). Without the secret, OpenWrt makes a key per build.
-      # /etc/ppe-release tells ppe-update where its newer images are.
-      - name: Point the image at its kmod feed
-        working-directory: openwrt
-        env:
-          APK_SIGN_KEY: ${{ secrets.APK_SIGN_KEY }}
-          PAGES_DEPLOY_KEY: ${{ secrets.PAGES_DEPLOY_KEY }}
-          OWNER: ${{ github.repository_owner }}
-          REPO_NAME: ${{ github.event.repository.name }}
-        run: |
-          set -euo pipefail
-          if [[ -n "$APK_SIGN_KEY" ]]; then
-            (umask 077; printf '%s\n' "$APK_SIGN_KEY" >private-key.pem)
-          fi
-          # The OpenWrt target feed serves another kernel's modules; this
-          # build's own target packages replace it.
-          site="https://${OWNER,,}.github.io/${REPO_NAME}"
-          [[ -z "$PAGES_DEPLOY_KEY" ]] || site="$PAGES_URL"
-          url="${site}/${TAG}/${DEVICE}/packages.adb"
-          mkdir -p files/etc/uci-defaults
-          printf "TAG='%s'\nGROUP='%s'\nSITE='%s'\nREPO='%s'\n" \
-            "$TAG" "$DEVICE" "$site" "$GITHUB_REPOSITORY" >files/etc/ppe-release
-          printf '%s\n' "sed -i 's|^.*/targets/.*/packages/packages\\.adb\$|${url}|' /etc/apk/repositories.d/distfeeds.list" \
-            >files/etc/uci-defaults/997-kmod-feed
-
-      - name: Set reproducible-build env
-        working-directory: openwrt
-        run: |
-          set -euo pipefail
-          {
-            echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)"
-            echo "TZ=UTC"
-            echo "LC_ALL=C"
-            echo "KBUILD_BUILD_USER=builder"
-            echo "KBUILD_BUILD_HOST=github"
-          } >>"$GITHUB_ENV"
-
-      # The OpenWrt source mirrors can stall, and a git source
-      # cannot fall back to a fresh clone: its PKG_MIRROR_HASH covers the zstd
-      # stream, which changes with the zstd version. Verified downloads are kept
-      # between runs; download.pl deletes any that no longer match their hash.
-      # Old source versions accumulate; deleting the dl- entries starts over.
-      - name: Restore sources
-        uses: actions/cache/restore@v6
-        with:
-          path: openwrt/dl
-          key: dl-${{ github.run_id }}
-          restore-keys: dl-
-
-      - name: Download sources
-        id: download
-        working-directory: openwrt
-        run: |
-          set -euo pipefail
-          mkdir -p dl
-          before=$(find dl -maxdepth 1 -type f | wc -l)
-          for attempt in 1 2 3; do
-            make download -j"$(nproc)" V=s && break
-            echo "Download attempt $attempt failed; retrying..."
-            sleep 5
-          done
-          echo "grew=$(($(find dl -maxdepth 1 -type f | wc -l) > before))" >>"$GITHUB_OUTPUT"
-
-      # One entry per run that fetched something new: the first job to get here
-      # saves, the others find the key taken. Each job restores the newest
-      # entry, so it grows to the union of every group's sources.
-      - name: Save sources
-        if: steps.download.outputs.grew == 1
-        uses: actions/cache/save@v6
-        with:
-          path: openwrt/dl
-          key: dl-${{ github.run_id }}
-
-      # ccache hashes neither the assembler nor cc1, so the key covers every
-      # toolchain input and a change there starts from an empty cache. GitHub
-      # drops entries unused for 7 days and evicts the oldest over the quota.
-      - name: Compute ccache key
-        id: ccache
-        run: |
-          set -euo pipefail
-          tree=$(git -C openwrt rev-parse HEAD:toolchain)
-          sum=$({
-            echo "$tree"
-            grep -E '^CONFIG_(BINUTILS|GCC|LIBC|MUSL|GLIBC)_' openwrt/.config
-            gcc --version; as --version
-          } | sha256sum | cut -c1-16)
-          echo "prefix=ccache-${{ env.VARIANT }}-$sum-" >>"$GITHUB_OUTPUT"
-
-      - name: Restore ccache
-        uses: actions/cache@v6
-        with:
-          path: openwrt/.ccache
-          key: ${{ steps.ccache.outputs.prefix }}${{ github.run_id }}
-          restore-keys: ${{ steps.ccache.outputs.prefix }}
-
-      - name: Build
-        working-directory: openwrt
-        env:
-          CCACHE_COMPILERCHECK: content
-          CCACHE_MAXSIZE: 4G
-        # A module that fails to build is left out of the feed; it is not in
-        # the image (=m), so it does not stop the release.
-        run: |
-          set -euo pipefail
-          make -j"$(nproc)" IGNORE_ERRORS=m || make -j1 V=s IGNORE_ERRORS=m
-          staging_dir/host/bin/ccache -s
-
-      - name: Upload images
-        run: |
-          set -euo pipefail
-          out=$(dirname "$(find openwrt/bin/targets -name sha256sums)")
-
-          # Sysupgrade images only - no factory/initramfs, per the project's
-          # sysupgrade-from-existing-OpenWrt model. Image names carry the
-          # device, so the groups never collide in the release. The build
-          # metadata does, so it is uploaded under the group name instead of
-          # dropped - it is the answer to "what exactly was in this image".
-          mapfile -t assets < <(find "$out" -maxdepth 1 -type f -name 'openwrt-*-squashfs-sysupgrade.bin')
-          [[ ${#assets[@]} -gt 0 ]] || { echo "::error::no sysupgrade images in $out"; exit 1; }
-          grep 'sysupgrade.bin' "$out/sha256sums" >"sha256sums-${DEVICE}.txt"
-          cp "$out/config.buildinfo" "config-${DEVICE}.buildinfo"
-          # The ImageBuilder and the overlay files are what custom.yml builds
-          # a picked package set from.
-          ib=$(find "$out" -maxdepth 1 -name 'openwrt-imagebuilder-*.tar.zst')
-          [[ -f "$ib" ]] || { echo "::error::no ImageBuilder in $out"; exit 1; }
-          mv "$ib" "imagebuilder-${DEVICE}.tar.zst"
-          tar -C openwrt/files -czf "files-${DEVICE}.tar.gz" .
-          assets+=("imagebuilder-${DEVICE}.tar.zst" "files-${DEVICE}.tar.gz")
-
-          # --clobber, so re-running a job that died mid-upload is a recovery
-          # and not a permanent "asset already exists".
-          for attempt in 1 2 3; do
-            gh release upload "$TAG" \
-              --repo "$GITHUB_REPOSITORY" --clobber \
-              "${assets[@]}" "sha256sums-${DEVICE}.txt" "config-${DEVICE}.buildinfo" && break
-            [[ $attempt -lt 3 ]] || { echo "::error::upload failed after $attempt attempts"; exit 1; }
-            echo "::warning::upload attempt $attempt failed; retrying"
-            sleep 15
-          done
-
-          {
-            echo "## ${DEVICE}"
-            echo "- assets: ${#assets[@]}"
-          } >>"$GITHUB_STEP_SUMMARY"
-
-      # The target packages (kernel, every kmod) and their signed index, at
-      # the path the image's uci-defaults points to. The feed job publishes it.
-      - name: Stage kmod feed
-        run: |
-          set -euo pipefail
-          pkgs="$(dirname "$(find openwrt/bin/targets -name sha256sums)")/packages"
-          [[ -s "$pkgs/packages.adb" ]] || { echo "::error::no packages.adb in $pkgs"; exit 1; }
-          mkdir -p "feed/$TAG"
-          mv "$pkgs" "feed/$TAG/$DEVICE"
-          out=$(dirname "$pkgs")
-          cp "$out/profiles.json" "$out"/*.manifest "feed/$TAG/$DEVICE/"
-          echo "- feed: $(find "feed/$TAG/$DEVICE" -name '*.apk' | wc -l) packages, $(du -sh "feed/$TAG/$DEVICE" | cut -f1)" >>"$GITHUB_STEP_SUMMARY"
-
-      - name: Upload kmod feed
-        uses: actions/upload-artifact@v7
-        with:
-          name: feed-${{ matrix.device }}
-          path: feed
-          retention-days: 3
-          compression-level: 0
-
-  publish:
-    name: Publish release
-    needs: [release, build]
-    if: always() && needs.release.result == 'success'
-    runs-on: ubuntu-26.04
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      TAG: ${{ needs.release.outputs.tag }}
-      BUILD_RESULT: ${{ needs.build.result }}
-    steps:
-      - name: Publish or discard
-        run: |
-          set -euo pipefail
-          if [[ "$BUILD_RESULT" != "success" ]]; then
-            # A half-built release would silently be missing devices, and a
-            # draft left behind is never pruned. Drop it and fail. No
-            # --cleanup-tag: a draft's tag exists only inside the release.
-            gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes
-            echo "::error::a build group failed ($BUILD_RESULT); draft release discarded"
-            exit 1
-          fi
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
-
-  prune:
-    name: Prune old releases
-    needs: publish
-    runs-on: ubuntu-26.04
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      REPO: ${{ github.repository }}
-    steps:
-      - uses: actions/checkout@v7
-      - name: Prune
-        run: |
-          set -euo pipefail
-          PREFIX="$RELEASE_PREFIX" bash scripts/prune-releases.sh
-
-  feed:
-    name: Publish kmod feeds and the image picker
-    needs: [release, prune]
-    runs-on: ubuntu-26.04
-    concurrency:
-      group: pages
-      cancel-in-progress: false
-    timeout-minutes: 20
-    permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: feed-*
-          merge-multiple: true
-          path: new
-
-      # gh-pages holds the picker and one directory per release tag, which
-      # lives as long as the release. One orphan commit, so pruned feeds leave
-      # the repository too.
-      - name: Push to gh-pages
-        env:
-          REPO: ${{ github.repository }}
-          PREFIX: ${{ env.RELEASE_PREFIX }}
-          NEW_DIR: new
-          PAGES_DEPLOY_KEY: ${{ secrets.PAGES_DEPLOY_KEY }}
-        run: bash scripts/publish-site.sh
+        The images carry NSS firmware 12.5 and 11.4 and boot 12.5. 802.11s
+        mesh needs 11.4, the last line that accepts a mesh interface:
+        `uci set nss-wifi.general.firmware=11.4; uci commit nss-wifi; reboot`.
