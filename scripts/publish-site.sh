@@ -5,7 +5,12 @@
 #
 # Required env:
 #   REPO      owner/name
-#   PREFIX    release tag prefix (ppe-nss)
+#   PREFIXES  the release tag prefixes of every flavour, space separated, the
+#             legacy one first (ppe-nss ppe-daily). Each run indexes them all,
+#             so one flavour's publish keeps the others in releases.json. The
+#             top-level latest/releases stay the first prefix's, which images
+#             built before the flavours existed read; flavours.<prefix> holds
+#             each flavour's own. PREFIX alone is still accepted.
 #   GH_TOKEN  push access
 # Optional:
 #   NEW_DIR   directory holding <tag>/<group>/ trees to add (the feed artifacts)
@@ -20,7 +25,8 @@ set -euo pipefail
 # shellcheck source=scripts/lib/log.sh
 source "$(dirname -- "$0")/lib/log.sh"
 
-: "${REPO:?}" "${PREFIX:?}" "${GH_TOKEN:?}"
+PREFIXES="${PREFIXES:-${PREFIX:-}}"
+: "${REPO:?}" "${PREFIXES:?}" "${GH_TOKEN:?}"
 SITE_DIR="${SITE_DIR:-$(dirname -- "$0")/../site}"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -56,17 +62,19 @@ done
 rsync -a --delete --exclude '/*/' --exclude '/.git' "$SITE_DIR"/ "$work/site/"
 touch "$work/site/.nojekyll"
 
-python3 - "$work/site" "$work/releases.raw.json" "$PREFIX" <<'EOF'
+read -ra prefixes <<<"$PREFIXES"
+python3 - "$work/site" "$work/releases.raw.json" "${prefixes[@]}" <<'EOF'
 import json, os, re, sys
 from datetime import datetime
 
-root, raw, prefix = sys.argv[1:]
-pat = re.compile(re.escape(prefix) + r"-\d{8}T\d{6}Z-\d+$")
-rels = []
+root, raw, prefixes = sys.argv[1], sys.argv[2], sys.argv[3:]
+pats = {p: re.compile(re.escape(p) + r"-\d{8}T\d{6}Z-\d+$") for p in prefixes}
+flavours = {p: [] for p in prefixes}
 for r in json.load(open(raw)):
     tag = r["tagName"]
     d = os.path.join(root, tag)
-    if not pat.match(tag) or not os.path.isdir(d):
+    prefix = next((p for p, pat in pats.items() if pat.match(tag)), None)
+    if not prefix or not os.path.isdir(d):
         continue
     boards = []
     for group in sorted(os.listdir(d)):
@@ -102,12 +110,16 @@ for r in json.load(open(raw)):
                 })
     json.dump(boards, open(os.path.join(d, "boards.json"), "w"), separators=(",", ":"))
     t = int(datetime.fromisoformat(r["publishedAt"].replace("Z", "+00:00")).timestamp())
-    rels.append({"tag": tag, "time": t,
-                 "groups": sorted({b["group"] for b in boards})})
-rels.sort(key=lambda r: r["tag"], reverse=True)
-json.dump({"latest": rels[0]["tag"] if rels else "", "releases": rels},
+    flavours[prefix].append({"tag": tag, "time": t,
+                             "groups": sorted({b["group"] for b in boards})})
+index = {}
+for p in prefixes:
+    rels = sorted(flavours[p], key=lambda r: r["tag"], reverse=True)
+    index[p] = {"latest": rels[0]["tag"] if rels else "", "releases": rels}
+legacy = index[prefixes[0]]
+json.dump({"latest": legacy["latest"], "releases": legacy["releases"], "flavours": index},
           open(os.path.join(root, "releases.json"), "w"), indent=1)
-print(f"{len(rels)} releases indexed")
+print(", ".join(f"{p}: {len(index[p]['releases'])} releases" for p in prefixes) + " indexed")
 EOF
 
 # One orphan commit, so deleted feeds leave the repository too.
