@@ -15,6 +15,9 @@
 #   UPSTREAM_REF    branch, tag, or SHA to build
 #   NSS_REPO        NSS packages repo (owner/name); empty if the build tracks no NSS feed
 #   NSS_REF         NSS ref (only used when NSS_REPO is set)
+#   SQM_REPO        sqm-scripts repo (owner/name) the build pins to its branch tip; empty
+#                   when the tree's own pin is used
+#   SQM_REF         sqm-scripts branch (only used when SQM_REPO is set)
 #   RELEASE_PREFIX  release tag prefix (tags are <prefix>-<ts>-<run id>)
 #   EVENT_NAME      github.event_name
 #   REPO            this builder repo (owner/name); defaults to $GITHUB_REPOSITORY
@@ -24,6 +27,7 @@
 # Outputs:
 #   upstream_sha  resolved upstream commit
 #   nss_sha       resolved NSS commit (empty when NSS_REPO is unset)
+#   sqm_sha       resolved sqm-scripts commit (empty when SQM_REPO is unset)
 #   need          "true" if a build is needed, else "false"
 
 set -euo pipefail
@@ -36,6 +40,8 @@ source "$(dirname -- "$0")/lib/log.sh"
 : "${RELEASE_PREFIX:?RELEASE_PREFIX required}"
 NSS_REPO="${NSS_REPO:-}"
 NSS_REF="${NSS_REF:-}"
+SQM_REPO="${SQM_REPO:-}"
+SQM_REF="${SQM_REF:-}"
 EVENT_NAME="${EVENT_NAME:-}"
 REPO="${REPO:-${GITHUB_REPOSITORY:-}}"
 command -v git >/dev/null || log::die "git is required"
@@ -51,6 +57,8 @@ resolve_sha() {
 up_sha="$(resolve_sha "$UPSTREAM_REPO" "$UPSTREAM_REF")"
 nss_sha=""
 [[ -n "$NSS_REPO" ]] && nss_sha="$(resolve_sha "$NSS_REPO" "$NSS_REF")"
+sqm_sha=""
+[[ -n "$SQM_REPO" ]] && sqm_sha="$(resolve_sha "$SQM_REPO" "$SQM_REF")"
 
 # Latest published release body for a prefix; empty when there is none.
 latest_body() {
@@ -70,20 +78,22 @@ else
   # scheduled tick -> only rebuild when a source moved since the last release
   # of the flavour built from it.
   body="$(latest_body "$RELEASE_PREFIX")"
-  if [[ "$body" == *"$up_sha"* ]] && { [[ -z "$nss_sha" ]] || [[ "$body" == *"$nss_sha"* ]]; }; then
+  if [[ "$body" == *"$up_sha"* ]] && { [[ -z "$nss_sha" ]] || [[ "$body" == *"$nss_sha"* ]]; } &&
+     { [[ -z "$sqm_sha" ]] || [[ "$body" == *"$sqm_sha"* ]]; }; then
     need=false
   else
     need=true
   fi
 fi
 
-log::info "$UPSTREAM_REPO@$UPSTREAM_REF -> ${up_sha:0:12}${nss_sha:+  nss ${nss_sha:0:12}}  build=$need"
+log::info "$UPSTREAM_REPO@$UPSTREAM_REF -> ${up_sha:0:12}${nss_sha:+  nss ${nss_sha:0:12}}${sqm_sha:+  sqm ${sqm_sha:0:12}}  build=$need"
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
     echo "## Upstream check"
     echo "- \`$UPSTREAM_REPO\` -> \`${up_sha:0:12}\`"
     [[ -n "$nss_sha" ]] && echo "- nss -> \`${nss_sha:0:12}\`"
+    [[ -n "$sqm_sha" ]] && echo "- sqm-scripts -> \`${sqm_sha:0:12}\`"
     echo "- need: **$need**"
   } >>"$GITHUB_STEP_SUMMARY"
 fi
@@ -92,6 +102,7 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   {
     echo "upstream_sha=$up_sha"
     echo "nss_sha=$nss_sha"
+    echo "sqm_sha=$sqm_sha"
     echo "need=$need"
   } >>"$GITHUB_OUTPUT"
 fi
