@@ -1,0 +1,14 @@
+ERROR: unable to select packages:
+  kmod-ath10k-ct-smallbuffers (no such package):
+    required by: world[kmod-ath10k-ct-smallbuffers]
+  nss-firmware (no such package):
+    required by: world[nss-firmware]
+                 kmod-nss-wifi-drv-6.18.55-r1[nss-firmware]
+  ip-tiny-7.3.0-r1:
+    conflicts: ip-full-7.3.0-r1[ip=7.3.0-r1]
+    satisfies: world[ip-tiny]
+               sqm-scripts-1.8.3-r1[ip]
+  ip-full-7.3.0-r1:
+    conflicts: ip-tiny-7.3.0-r1[ip=7.3.0-r1]
+    satisfies: pbr-1.2.2-r20[ip-full]
+               sqm-scripts-1.8.3-r1[ip]

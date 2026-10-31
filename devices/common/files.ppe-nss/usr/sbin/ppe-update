@@ -1,21 +1,22 @@
 #!/bin/sh
 # ppe-update: move this router to the newest image of the builder it came from.
 #
-#   ppe-update status    one line of JSON for LuCI
-#   ppe-update check     exit 0 if a newer image exists, 1 if not, 2 on error
-#   ppe-update update    download, verify and flash the newer image (keeps settings)
-#   ppe-update start     run update in the background, logging to /tmp/ppe-update.log
-#   ppe-update auto      what cron runs: update when enabled and the release is old enough
-#   ppe-update restore   reinstall the packages added on top of the image (runs after boot)
+#   ppe-update status       one line of JSON for LuCI
+#   ppe-update check        exit 0 if a newer image exists, 1 if not, 2 on error
+#   ppe-update update [-f]  download, verify and flash the newer image (keeps settings)
+#   ppe-update start [-f]   run update in the background, logging to /tmp/ppe-update.log
+#   ppe-update auto         what cron runs: update to the newest release that is old enough
+#   ppe-update restore      reinstall the packages added on top of the image (runs after boot)
 #
 # Packages installed on top of the image, and those removed from it, are written
 # to /etc/ppe-update/packages before the flash and applied again from the new
-# release's feeds after it.
+# release's feeds after it. An update stops before the flash when one of them
+# cannot be installed from the new release; -f flashes anyway.
 
-. /etc/ppe-release 2>/dev/null
+[ -r "${PPE_RELEASE:=/etc/ppe-release}" ] && . "$PPE_RELEASE"
 
-STATE=/etc/ppe-update
-WORK=/tmp/ppe-update
+STATE=${PPE_STATE:-/etc/ppe-update}
+WORK=${PPE_WORK:-/tmp/ppe-update}
 BOARD=$(cat /tmp/sysinfo/board_name 2>/dev/null)
 
 log() { logger -t ppe-update "$*"; echo "$*" >&2; }
@@ -25,8 +26,8 @@ fetch() {
 	uclient-fetch -q -T 30 -O "$2" "$1" 2>/dev/null
 }
 
-# Fills LATEST, LATEST_TIME, IMAGE, SHA256, SIZE, NEWGROUP and $WORK/manifest.
-lookup() {
+# Fetches the release list into $WORK/releases.json, following a move of the site.
+index() {
 	[ -n "$TAG" ] && [ -n "$SITE" ] || die "this image was not built by the builder (no /etc/ppe-release)"
 	mkdir -p "$WORK"
 	fetch "$SITE/releases.json" "$WORK/releases.json" || die "cannot fetch $SITE/releases.json"
@@ -35,7 +36,28 @@ lookup() {
 		SITE=$moved
 		fetch "$SITE/releases.json" "$WORK/releases.json" || die "cannot fetch $SITE/releases.json"
 	fi
-	LATEST=$(jsonfilter -i "$WORK/releases.json" -e '@.latest')
+}
+
+# The newest release, or with an age in seconds the newest one at least that old.
+pick() {
+	if [ -z "$1" ]; then
+		jsonfilter -i "$WORK/releases.json" -e '@.latest'
+		return
+	fi
+	now=$(date +%s)
+	i=0
+	while t=$(jsonfilter -i "$WORK/releases.json" -e "@.releases[$i].tag") && [ -n "$t" ]; do
+		tm=$(jsonfilter -i "$WORK/releases.json" -e "@.releases[$i].time")
+		[ $((now - ${tm:-now})) -ge "$1" ] && { echo "$t"; return; }
+		i=$((i + 1))
+	done
+}
+
+# Fills LATEST, LATEST_TIME, IMAGE, SHA256, SIZE, NEWGROUP and $WORK/manifest
+# for the release $1, the newest one when empty.
+lookup() {
+	index
+	LATEST=${1:-$(pick)}
 	[ -n "$LATEST" ] || die "releases.json names no latest release"
 	LATEST_TIME=$(jsonfilter -i "$WORK/releases.json" -e "@.releases[@.tag='$LATEST'].time")
 	fetch "$SITE/$LATEST/boards.json" "$WORK/boards.json" || die "cannot fetch the board list of $LATEST"
@@ -66,34 +88,90 @@ extras() {
 	} | sort -u
 }
 
+# The packages apk names as not installable in its "unable to select" report:
+# those no feed has, and those whose dependencies or conflicts cannot be met.
+unresolved() {
+	sed -n -e 's/^  \([^ ]*\) (no such package):$/\1/p' \
+		-e 's/^  \([^ ]*\)-[0-9][^ ]*:$/\1/p' "$1" | sort -u
+}
+
+# Resolves the kept packages against the feeds of $LATEST in an empty root, as
+# the first boot of the new image does, and lists in $WORK/missing those that
+# cannot be installed. The new image's own packages count as present: they are
+# installed already and the release does not publish all of them as a feed.
+# The result is cached per release and package list.
+preflight() {
+	extras >"$WORK/extras"
+	key=$(cat "$WORK/extras" | md5sum | cut -c1-8)
+	[ -f "$WORK/missing.$LATEST.$key" ] && { cp "$WORK/missing.$LATEST.$key" "$WORK/missing"; return 0; }
+	: >"$WORK/missing"
+	pkgs=$(grep -v '^!' "$WORK/extras")
+	[ -n "$pkgs" ] || return 0
+
+	sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' \
+		-e "s|^.*/$TAG/$GROUP/packages\.adb\$|$SITE/$LATEST/$NEWGROUP/packages.adb|" \
+		-e "s|^.*/targets/.*/packages/packages\.adb\$|$SITE/$LATEST/$NEWGROUP/packages.adb|" \
+		/etc/apk/repositories.d/*.list /etc/apk/repositories 2>/dev/null | sort -u >"$WORK/repositories"
+	sim="$WORK/sim"
+	set -- --root "$sim" --arch "$(cat /etc/apk/arch)" --keys-dir /etc/apk/keys \
+		--repositories-file "$WORK/repositories" --no-logfile
+	[ -d "$sim/lib/apk/db" ] || apk add "$@" --initdb >/dev/null 2>&1 || die "cannot set up the package check"
+	apk update "$@" >"$WORK/check.log" 2>&1 || die "cannot read the package feeds of $LATEST"
+	# shellcheck disable=SC2086
+	apk add "$@" --simulate $pkgs >"$WORK/check.log" 2>&1 ||
+		unresolved "$WORK/check.log" | grep -vxF -f "$WORK/manifest" | grep -xF "$pkgs" >"$WORK/missing"
+	rm -f "$WORK"/missing.*
+	cp "$WORK/missing" "$WORK/missing.$LATEST.$key"
+}
+
 cmd_status() {
 	auto=$(uci -q get ppe-update.main.auto)
-	if lookup 2>/dev/null; then
-		newer && avail=true || avail=false
-		printf '{"board":"%s","current":"%s","group":"%s","latest":"%s","latest_time":%s,"update":%s,"image":"%s","size":%s,"extras":"%s","auto":"%s"}\n' \
+	pending=$(tr "\n" " " 2>/dev/null <"$STATE/packages")
+	# die() exits, so each step that can fail runs in a subshell of its own.
+	(
+		lookup
+		missing='' checked=true
+		if newer; then
+			avail=true
+			if (preflight); then
+				missing=$(tr '\n' ' ' <"$WORK/missing")
+			else
+				checked=false
+			fi
+		else
+			avail=false
+		fi
+		printf '{"board":"%s","current":"%s","group":"%s","latest":"%s","latest_time":%s,"update":%s,"image":"%s","size":%s,"extras":"%s","missing":"%s","checked":%s,"pending":"%s","auto":"%s"}\n' \
 			"$BOARD" "$TAG" "$GROUP" "$LATEST" "${LATEST_TIME:-0}" "$avail" "$IMAGE" "${SIZE:-0}" \
-			"$(extras | tr '\n' ' ')" "${auto:-0}"
-	else
-		printf '{"board":"%s","current":"%s","group":"%s","error":"cannot reach the release list","auto":"%s"}\n' \
-			"$BOARD" "$TAG" "$GROUP" "${auto:-0}"
-	fi
+			"$(extras | tr '\n' ' ')" "$missing" "$checked" "$pending" "${auto:-0}"
+	) 2>/dev/null ||
+		printf '{"board":"%s","current":"%s","group":"%s","error":"cannot reach the release list","pending":"%s","auto":"%s"}\n' \
+			"$BOARD" "$TAG" "$GROUP" "$pending" "${auto:-0}"
 }
 
 cmd_check() {
 	lookup
 	if newer; then
 		echo "update available: $TAG -> $LATEST ($IMAGE)"
-		x=$(extras | tr '\n' ' ')
+		preflight
+		x=$(grep -vxF -f "$WORK/missing" "$WORK/extras" | tr '\n' ' ')
 		[ -n "$x" ] && echo "kept after the update: $x"
+		[ -s "$WORK/missing" ] && echo "not available in $LATEST: $(tr '\n' ' ' <"$WORK/missing")"
 		return 0
 	fi
 	echo "up to date: $TAG"
 	return 1
 }
 
+# $1: the release to flash, the newest when empty; $2: -f to flash although a
+# kept package cannot be installed from it.
 cmd_update() {
-	lookup
+	lookup "$1"
 	newer || { echo "up to date: $TAG"; return 1; }
+	preflight
+	if [ -s "$WORK/missing" ] && [ "$2" != "-f" ]; then
+		die "$LATEST cannot install $(tr '\n' ' ' <"$WORK/missing")- staying on $TAG (ppe-update update -f flashes anyway)"
+	fi
 	free=$(awk '/^MemAvailable/ { print $2 * 1024 }' /proc/meminfo)
 	[ "${SIZE:-0}" -gt 0 ] && [ "$free" -gt $((SIZE * 3)) ] || die "not enough free memory for a $SIZE byte image"
 
@@ -103,50 +181,70 @@ cmd_update() {
 	sysupgrade -T "$WORK/$IMAGE" >/dev/null 2>&1 || { rm -f "$WORK/$IMAGE"; die "sysupgrade rejects $IMAGE"; }
 
 	mkdir -p "$STATE"
-	extras >"$STATE/packages"
+	cp "$WORK/extras" "$STATE/packages"
 	[ -s "$STATE/packages" ] || rm -f "$STATE/packages"
 	log "flashing $LATEST, keeping settings"
 	sysupgrade "$WORK/$IMAGE"
 }
 
 cmd_start() {
-	(cmd_update </dev/null >/tmp/ppe-update.log 2>&1; echo "exit $?" >>/tmp/ppe-update.log) &
+	(cmd_update "" "$1" </dev/null >/tmp/ppe-update.log 2>&1; echo "exit $?" >>/tmp/ppe-update.log) &
 }
 
+# A release is installed once it has been out for the configured delay: the
+# newest such release, so a build every day does not hold the router back.
 cmd_auto() {
 	[ "$(uci -q get ppe-update.main.auto)" = 1 ] || return 0
-	lookup
-	newer || return 0
-	age=$(( $(date +%s) - ${LATEST_TIME:-0} ))
+	index
 	min=$(( $(uci -q get ppe-update.main.delay || echo 1) * 86400 ))
-	[ "$age" -ge "$min" ] || { log "$LATEST is newer than the delay; waiting"; return 0; }
-	cmd_update
+	rel=$(pick "$min")
+	[ -n "$rel" ] || { log "no release is older than the delay yet; waiting"; return 0; }
+	cmd_update "$rel"
 }
 
+# Installs the kept list in one transaction. When that fails, each package is
+# tried on its own, with the removals beside it so a replacement can go in (pbr
+# taking ip-full for ip-tiny); what still fails stays in the list for the next
+# boot and is shown in LuCI.
 cmd_restore() {
 	[ -s "$STATE/packages" ] || return 0
 	lock -n /var/lock/ppe-update || return 0
 	# The network comes up after boot; retry for up to an hour.
 	i=0
-	while [ $i -lt 120 ]; do
-		if apk update >/dev/null 2>&1; then
-			# shellcheck disable=SC2046
-			if apk add $(cat "$STATE/packages"); then
-				log "reinstalled: $(tr '\n' ' ' <"$STATE/packages")"
-				rm -f "$STATE/packages"
-				return 0
-			fi
-			log "apk add failed; the list stays in $STATE/packages"
-			return 2
-		fi
+	until apk update >/dev/null 2>&1; do
 		i=$((i + 1))
+		[ $i -lt 120 ] || die "no package feed reachable; the list stays in $STATE/packages"
 		sleep 30
 	done
-	die "no package feed reachable; the list stays in $STATE/packages"
+	# shellcheck disable=SC2046
+	if apk add $(cat "$STATE/packages"); then
+		log "reinstalled: $(tr '\n' ' ' <"$STATE/packages")"
+		rm -f "$STATE/packages"
+		return 0
+	fi
+	del=$(grep '^!' "$STATE/packages")
+	: >"$WORK.left"
+	grep -v "^!" "$STATE/packages" | while read -r p; do
+		# shellcheck disable=SC2086
+		apk add $del "$p" >/dev/null 2>&1 || apk add "$p" || echo "$p" >>"$WORK.left"
+	done
+	# shellcheck disable=SC2086
+	[ -z "$del" ] || apk add $del || echo "$del" >>"$WORK.left"
+	if [ -s "$WORK.left" ]; then
+		mv "$WORK.left" "$STATE/packages"
+		die "not reinstalled: $(tr '\n' ' ' <"$STATE/packages")- the list stays in $STATE/packages"
+	fi
+	log "reinstalled: $(tr '\n' ' ' <"$STATE/packages")"
+	rm -f "$STATE/packages" "$WORK.left"
 }
 
+# scripts/tests/ppe-update.test.sh loads the functions without running a command.
+[ -n "$PPE_UPDATE_LIB" ] && return 0
+
 case "$1" in
-status | check | update | start | auto | restore) "cmd_$1" ;;
+status | check | auto | restore) "cmd_$1" ;;
+update) cmd_update "" "$2" ;;
+start) cmd_start "$2" ;;
 *)
 	sed -n '2,10s/^# \{0,1\}//p' "$0"
 	exit 2

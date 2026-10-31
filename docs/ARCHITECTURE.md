@@ -43,8 +43,15 @@ prereleases older than seven days.
 
 Each image carries `/etc/ppe-release` (tag, group, site and repository).
 `ppe-update` reads `releases.json` and `boards.json`, flashes the newest
-image of its board and group, and installs the packages of `/etc/apk/world`
-that the new image lacks again after the reboot.
+image of its board and group (the automatic update takes the newest one that
+has been out for its delay), and installs the packages of `/etc/apk/world`
+that the new image lacks again after the reboot. Before it flashes, it
+resolves those packages against the new release's feeds in an empty apk root
+and stops if one cannot be installed; after the reboot, a package that still
+fails stays listed in `/etc/ppe-update/packages` and on the LuCI page, and the
+rest are installed. `/lib/upgrade/keep-apk-conffiles.sh` adds the conffiles a
+package creates at run time, such as tailscale's state, to the sysupgrade
+backup, which otherwise holds only the ones apk recorded a checksum for.
 
 ## Design choices
 

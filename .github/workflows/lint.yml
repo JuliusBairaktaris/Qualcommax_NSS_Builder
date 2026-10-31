@@ -7,10 +7,12 @@ on:
     paths:
       - '.github/workflows/**'
       - 'scripts/**'
+      - 'devices/common/files*/**'
   pull_request:
     paths:
       - '.github/workflows/**'
       - 'scripts/**'
+      - 'devices/common/files*/**'
 
 permissions:
   contents: read
@@ -47,6 +49,9 @@ jobs:
           sudo apt-get update || true
           sudo apt-get install -y --no-install-recommends shellcheck
           shellcheck -x scripts/*.sh scripts/lib/*.sh scripts/tests/*.sh
+          # The router scripts run in busybox ash; /etc/ppe-release exists only there.
+          shellcheck -s sh -e SC1090,SC1091,SC3043 devices/common/files.ppe-nss/usr/sbin/ppe-update \
+            devices/common/files.ppe-nss/etc/uci-defaults/* devices/common/files/lib/upgrade/*.sh
 
   yamllint:
     name: yamllint
@@ -72,3 +77,12 @@ jobs:
         run: sudo apt-get update || true; sudo apt-get install -y --no-install-recommends jq
       - name: Run tests
         run: bash scripts/tests/prune-releases.test.sh
+
+  ppe-update-tests:
+    name: ppe-update tests
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run tests
+        run: bash scripts/tests/ppe-update.test.sh

@@ -1,6 +1,8 @@
 #!/bin/sh
 # Files of the image overlay are not enabled by a package install. The first
-# boot after an update is also where the kept package list is reinstalled.
+# boot after an update is also where the kept package list is reinstalled; the
+# name sorts after every other default, so the image's kmod feed and package
+# world are in place before the reinstall reads them.
 /etc/init.d/ppe-update enable
 [ -s /etc/ppe-update/packages ] && (/usr/sbin/ppe-update restore </dev/null >/dev/null 2>&1 &)
 exit 0

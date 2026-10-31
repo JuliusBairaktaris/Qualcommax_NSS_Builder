@@ -10,7 +10,8 @@
 		},
 		"write": {
 			"file": {
-				"/usr/sbin/ppe-update start": [ "exec" ]
+				"/usr/sbin/ppe-update start": [ "exec" ],
+				"/usr/sbin/ppe-update start -f": [ "exec" ]
 			},
 			"uci": [ "ppe-update" ]
 		}

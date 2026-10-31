@@ -30,12 +30,12 @@ return view.extend({
 		}, this));
 	},
 
-	startUpdate: function(st) {
+	startUpdate: function(st, force) {
 		ui.showModal(_('Updating to %s').format(st.latest), [
 			E('p', { 'class': 'spinning' }, _('Downloading and checking the image. The router flashes it and reboots; settings and added packages are kept.')),
 			E('pre', { 'id': 'ppe-update-log', 'style': 'max-height:12em;overflow:auto;white-space:pre-wrap' })
 		]);
-		return fs.exec('/usr/sbin/ppe-update', [ 'start' ]).then(L.bind(this.pollLog, this));
+		return fs.exec('/usr/sbin/ppe-update', force ? [ 'start', '-f' ] : [ 'start' ]).then(L.bind(this.pollLog, this));
 	},
 
 	render: function(st) {
@@ -49,10 +49,16 @@ return view.extend({
 			rows.push([ _('Newest release'), '%s (%s)'.format(st.latest, fmtTime(st.latest_time)) ]);
 			if (st.extras)
 				rows.push([ _('Kept after the update'), st.extras ]);
+			if (st.missing)
+				rows.push([ _('Not available in the new release'), E('strong', st.missing) ]);
+			else if (st.update && st.checked === false)
+				rows.push([ _('Not available in the new release'), _('the package feeds of the new release cannot be read') ]);
 		}
 		else if (st.error) {
 			rows.push([ _('Newest release'), st.error ]);
 		}
+		if (st.pending)
+			rows.push([ _('Not reinstalled after the last update'), E('strong', st.pending) ]);
 
 		var status = E('div', { 'class': 'cbi-section' }, [
 			E('h3', _('Firmware update')),
@@ -62,16 +68,18 @@ return view.extend({
 				return E('tr', { 'class': 'tr' }, [ E('td', { 'class': 'td left', 'width': '33%' }, r[0]), E('td', { 'class': 'td left' }, r[1]) ]);
 			})),
 			E('div', { 'class': 'right' }, [
-				st.update
-					? E('button', { 'class': 'btn cbi-button cbi-button-apply', 'click': ui.createHandlerFn(this, 'startUpdate', st) }, _('Update now'))
-					: E('em', st.latest ? _('Up to date.') : '')
+				!st.update
+					? E('em', st.latest ? _('Up to date.') : '')
+					: st.missing
+						? E('button', { 'class': 'btn cbi-button cbi-button-negative', 'click': ui.createHandlerFn(this, 'startUpdate', st, true) }, _('Update without these packages'))
+						: E('button', { 'class': 'btn cbi-button cbi-button-apply', 'click': ui.createHandlerFn(this, 'startUpdate', st, false) }, _('Update now'))
 			])
 		]);
 
 		m = new form.Map('ppe-update');
 		s = m.section(form.NamedSection, 'main', 'ppe-update', _('Automatic update'));
 		o = s.option(form.Flag, 'auto', _('Update automatically'),
-			_('Checks once a day and installs a newer release, keeping settings and added packages.'));
+			_('Checks once a day and installs the newest release that has been out for the delay below, keeping settings and added packages. A release that cannot install every added package is skipped.'));
 		o.rmempty = false;
 		o = s.option(form.ListValue, 'hour', _('Hour of the check'));
 		for (var h = 0; h < 24; h++)
@@ -79,7 +87,7 @@ return view.extend({
 		o.default = '4';
 		o.depends('auto', '1');
 		o = s.option(form.Value, 'delay', _('Wait this many days after a release'),
-			_('A release is installed only after it has been out this long.'));
+			_('The newest release that has been out this long is installed.'));
 		o.datatype = 'uinteger';
 		o.default = '1';
 		o.depends('auto', '1');
