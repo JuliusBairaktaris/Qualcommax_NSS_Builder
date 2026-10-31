@@ -45,7 +45,10 @@ env:
   # Every flavour's prefix, the legacy one first: each publish indexes them all
   # (scripts/publish-site.sh).
   PREFIXES: ppe-nss
-  KEEP: "2"                     # newest releases to retain, per prefix
+  # Newest releases to retain, per prefix. Each release's kmod feed lives as long as it
+  # does, and a router installs kmods only from its own; three daily builds fit the
+  # 1 GB Pages limit.
+  KEEP: "3"
   # feeds.conf lines; prepare-build.sh swaps a luci line in for the default feed.
   FEEDS: ${{ inputs.feeds }}
 

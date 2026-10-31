@@ -18,7 +18,7 @@ env:
   NSS_REF: ppe-nss
   VARIANT: ppe-nss                                    # selects files.<variant> and patches/*/<variant>
   RELEASE_PREFIX: ppe-nss                             # tag = <prefix>-<timestamp>-<run id>
-  KEEP: "2"                                           # newest releases kept per prefix
+  KEEP: "3"                                           # newest releases kept per prefix
   FEEDS: |
     src-git nss https://github.com/JuliusBairaktaris/nss-packages.git;ppe-nss
     src-git luci https://github.com/JuliusBairaktaris/luci.git;luci-app-ppe-qos
@@ -112,12 +112,13 @@ changed. `etc/rc.local` runs on every boot.
 ```yaml
 on:
   schedule:
-    - cron: "0 */2 * * *"
+    - cron: "0 1 * * *"
 ```
 
-A scheduled run builds only when the `ppe-nss` commit of either repository
+The daily run builds only when the `ppe-nss` commit of either repository
 differs from the one the latest release records. A push to `devices/`,
-`scripts/` or the workflow, and a manual run, always build. Remove the
+`patches/`, `scripts/prepare-build.sh` or the workflows, and a manual run,
+always build. Remove the
 `schedule:` block for manual builds only.
 
 ## Caches
