@@ -36,7 +36,7 @@ The `build` job builds every group:
 ```yaml
     strategy:
       matrix:
-        device: [xiaomi_ax3600, ipq807x-1g, ipq807x-512m, ipq807x-256m, ipq60xx-1g, ipq60xx-512m]
+        device: [xiaomi_ax3600, ipq807x-1g, ipq807x-512m, ipq807x-256m, ipq807x-linksys-mx, ipq60xx-1g, ipq60xx-512m]
 ```
 
 A group is one `devices/<group>/` directory. Boards share a group when they

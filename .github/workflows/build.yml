@@ -36,7 +36,7 @@ jobs:
       title: OpenWrt ppe-nss
       # The ath11k memory profile is compile-time and image-wide, so boards share a build
       # only when they share a profile.
-      devices: '["xiaomi_ax3600", "ipq807x-1g", "ipq807x-512m", "ipq807x-256m", "ipq60xx-1g", "ipq60xx-512m"]'
+      devices: '["xiaomi_ax3600", "ipq807x-1g", "ipq807x-512m", "ipq807x-256m", "ipq807x-linksys-mx", "ipq60xx-1g", "ipq60xx-512m"]'
       # nss-firmware, and the luci fork carrying luci-app-qca-ppe-qos (openwrt/luci PR 8965),
       # which prepare-build.sh swaps in for the default luci feed.
       feeds: |
