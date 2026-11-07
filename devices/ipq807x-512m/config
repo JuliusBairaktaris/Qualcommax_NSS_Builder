@@ -1,10 +1,10 @@
 #
 # Every 512 MB ipq807x board except the Xiaomi AX3600, which has its own
-# device directory (same image plus board-specific overlay files).
+# device directory (same image plus board-specific overlay files), and the
+# MX4200 v1 (devices/ipq807x-linksys-mx).
 #
 # Concatenated onto devices/common/config by prepare-build.sh. See
-# devices/ipq807x-1g/config for why the groups are split by memory profile and
-# why nothing checks that a board is in the right one.
+# devices/ipq807x-1g/config for what the groups split by RAM differ in.
 #
 
 CONFIG_TARGET_qualcommax_ipq807x=y
