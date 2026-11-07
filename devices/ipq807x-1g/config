@@ -1,15 +1,11 @@
 #
-# Every ipq807x board with 1 GB or more of RAM, in one image set.
+# Every ipq807x board with 1 GB or more of RAM, in one image set, except the
+# boards with a 6 MiB kernel partition (devices/ipq807x-6m-kernel).
 #
-# Concatenated onto devices/common/config by prepare-build.sh. The group exists
-# because the ath11k and NSS memory profiles are compile-time and image-wide, so
-# boards can only share a build when they share a profile.
-#
-# Grouping is by hand. kmod-ath11k carries its own per-board profile selects,
-# but they key off the single-profile choice symbol, which a multi-device build
-# never sets - so the profile below is the only thing deciding, and a board
-# listed in the wrong group gets an image built for the wrong amount of RAM with
-# nothing in the build to say so. Keep the three groups matching that block.
+# Concatenated onto devices/common/config by prepare-build.sh. The ppe-nss
+# branch has no compile-time ath11k or NSS memory profile, so the groups split
+# by RAM differ only in what their config files add: the 256 MB and 512 MB
+# groups carry zram-swap, this one does not.
 #
 # No device-specific package pruning here: DEVICE_PACKAGES pulls in what each
 # board needs (ath10k firmware, USB, 10G PHY), and disabling any of it would

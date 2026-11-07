@@ -1,10 +1,10 @@
 #
-# The one 256 MB ipq807x board. It gets its own build because the memory
-# profiles are compile-time and image-wide; see devices/ipq807x-1g/config.
+# The one 256 MB ipq807x board; see devices/ipq807x-1g/config for what the
+# groups split by RAM differ in.
 #
 # 256 MB is the tightest board the NSS plane runs on: the firmware carve-out
-# (nss_region, 16 MB) plus the NSS buffer pools come out of the same RAM the
-# rest of the system needs, which is why this build takes the LOW profile.
+# (nss_region, 16 MB) and the NSS buffer pools come out of the same RAM the
+# rest of the system needs, which is why this build adds zram-swap.
 # Concatenated onto devices/common/config by prepare-build.sh.
 #
 # It is a multi-device build with one device in it, like the other groups, so

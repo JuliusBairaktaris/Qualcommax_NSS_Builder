@@ -1,10 +1,9 @@
 #
 # Every ipq60xx board with 1 GB or more of RAM, in one image set.
 #
-# Concatenated onto devices/common/config by prepare-build.sh. The groups are
-# split by the ath11k memory profile, as for ipq807x (see
-# devices/ipq807x-1g/config). MEDIUM is the largest NSS profile on ipq60xx, so
-# both groups take it.
+# Concatenated onto devices/common/config by prepare-build.sh. As for
+# ipq807x (see devices/ipq807x-1g/config), the groups split by RAM differ only
+# in the 512 MB group's zram-swap.
 #
 
 CONFIG_TARGET_qualcommax_ipq60xx=y
