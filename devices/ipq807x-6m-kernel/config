@@ -1,0 +1,35 @@
+#
+# The ipq807x boards whose kernel partition holds 6 MiB: the Linksys MX4200 v1
+# and v2, MX5300 and MX8500 (KERNEL_SIZE := 6144k; the UBI rootfs starts at
+# 0x1680000, 6 MiB into the kernel partition) and the Zyxel NBG7815 (both
+# eMMC HLOS partitions are 6291456 bytes). The limit is the flash layout and
+# cannot be raised without moving every installed rootfs.
+#
+# Concatenated onto devices/common/config by prepare-build.sh.
+#
+# They get their own build for the kernel's stack protector. The common config
+# asks for STRONG, which grows the gzip FIT kernel by 129 KB over REGULAR
+# (6251800 against 6122797 bytes on 6.18.60), and the MX4200 v1 image came to
+# 6297304 bytes, over the 6291456 the partition holds. REGULAR, the OpenWrt
+# default, leaves about 121 KB free. Every other board keeps STRONG.
+#
+# The MX4300 has an 8 MiB kernel partition and stays in ipq807x-1g.
+#
+
+CONFIG_TARGET_qualcommax_ipq807x=y
+CONFIG_TARGET_MULTI_PROFILE=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+
+CONFIG_KERNEL_CC_STACKPROTECTOR_STRONG=n
+CONFIG_KERNEL_CC_STACKPROTECTOR_REGULAR=y
+
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_linksys_mx4200v1=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_linksys_mx4200v2=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_linksys_mx5300=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_linksys_mx8500=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq807x_DEVICE_zyxel_nbg7815=y
+
+# Compressed swap in RAM for the 512 MB MX4200 v1, as in ipq807x-512m; built
+# as a package so the board's DEVICE_PACKAGES can name it.
+CONFIG_PACKAGE_zram-swap=m
+CONFIG_TARGET_DEVICE_PACKAGES_qualcommax_ipq807x_DEVICE_linksys_mx4200v1="zram-swap"
