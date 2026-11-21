@@ -55,7 +55,7 @@ return view.extend({
 			if (st.missing)
 				rows.push([ _('Not available in the new release'), E('strong', st.missing) ]);
 			else if (st.update && st.checked === false)
-				rows.push([ _('Not available in the new release'), _('the package feeds of the new release cannot be read') ]);
+				rows.push([ _('Kept packages not checked'), E('strong', st.check_error || _('the package feeds of the new release cannot be read')) ]);
 		}
 		else if (st.error) {
 			rows.push([ _('Newest release'), st.error ]);
@@ -75,6 +75,8 @@ return view.extend({
 					? E('em', st.latest ? _('Up to date.') : '')
 					: st.missing
 						? E('button', { 'class': 'btn cbi-button cbi-button-negative', 'click': ui.createHandlerFn(this, 'startUpdate', st, true) }, _('Update without these packages'))
+						: st.checked === false
+						? E('button', { 'class': 'btn cbi-button cbi-button-negative', 'click': ui.createHandlerFn(this, 'startUpdate', st, true) }, _('Update without the package check'))
 						: E('button', { 'class': 'btn cbi-button cbi-button-apply', 'click': ui.createHandlerFn(this, 'startUpdate', st, false) }, _('Update now'))
 			])
 		]);

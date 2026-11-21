@@ -34,13 +34,18 @@ got="$(ppe "unresolved '$here/fixtures/apk-unable-to-select.txt'" | tr '\n' ' ')
 check "unresolved names missing and conflicting packages" \
   "ip-full ip-tiny kmod-ath10k-ct-smallbuffers nss-firmware " "$got"
 
-# The stub apk: a package the feeds lack fails, pbr needs ip-tiny removed in the
+# The stub apk: an update fails as apk does on a feed signed with a key the image
+# does not trust while $tmp/untrusted exists, a package the feeds lack fails, pbr needs ip-tiny removed in the
 # same transaction (it takes ip-full, which conflicts with it), and every
 # successful add is recorded.
 mkdir -p "$tmp/bin" "$tmp/state"
 cat >"$tmp/bin/apk" <<STUB
 #!/bin/sh
-[ "\$1" = update ] && exit 0
+if [ "\$1" = update ]; then
+  [ -e "$tmp/untrusted" ] || exit 0
+  echo "WARNING: updating and opening https://example/packages.adb: UNTRUSTED signature"
+  exit 1
+fi
 shift
 case " \$* " in *" kmod-ath10k-ct-smallbuffers "*) exit 1 ;; esac
 case " \$* " in *" pbr "*) case " \$* " in *" !ip-tiny "*) ;; *) exit 1 ;; esac ;; esac
@@ -68,7 +73,26 @@ check "restore clears an installed list" "absent" \
   "$([[ -e "$tmp/state/packages" ]] && echo present || echo absent)"
 check "restore installs it in one transaction" "!ip-tiny pbr tailscale" "$(cat "$tmp/added")"
 
-# Case 4: start returns at once and holds none of the caller's descriptors, or
+# Case 4: feeds signed with another key are named as that, and stop an update
+# unless it is forced. The router's world is not on this host, so the kept
+# list and the release lookup are given.
+# shellcheck disable=SC2016
+given='mkdir -p "$WORK"; LATEST=r2 TAG=r1 IMAGE=img SIZE=0; extras() { echo usteer; }; lookup() { :; }'
+touch "$tmp/untrusted"
+check "preflight names an untrusted feed" \
+  "1 the package feeds of r2 are signed with a key this image does not trust" \
+  "$(ppe "$given; preflight; echo \$? \$(cat \$WORK/check.err)")"
+check "update stops on an unchecked release" "2" "$(ppe "$given; cmd_update '' ''; echo \$?" || echo $?)"
+# Forced, it goes on to the memory check, which a zero-size image fails.
+PATH="$tmp/bin:$PATH" PPE_UPDATE_LIB=1 PPE_RELEASE=/dev/null PPE_STATE="$tmp/state" PPE_WORK="$tmp/work" \
+  sh -c ". '$script'; $given; cmd_update '' -f" >/dev/null 2>"$tmp/forced" || true
+check "a forced update flashes without the check" \
+  "the package feeds of r2 are signed with a key this image does not trust; flashing without the package check" \
+  "$(grep -m1 'flashing without' "$tmp/forced")"
+rm -f "$tmp/untrusted"
+check "preflight passes a trusted feed" "0" "$(ppe "$given; preflight; echo \$?")"
+
+# Case 5: start returns at once and holds none of the caller's descriptors, or
 # rpcd would not answer LuCI before the update ends. The reader of the pipe
 # sees its end only when every writer has closed it.
 begin=$(date +%s)

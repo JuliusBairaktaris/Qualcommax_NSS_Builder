@@ -11,7 +11,8 @@
 # Packages installed on top of the image, and those removed from it, are written
 # to /etc/ppe-update/packages before the flash and applied again from the new
 # release's feeds after it. An update stops before the flash when one of them
-# cannot be installed from the new release; -f flashes anyway.
+# cannot be installed from the new release, or when the feeds of the new release
+# cannot be read; -f flashes anyway.
 
 [ -r "${PPE_RELEASE:=/etc/ppe-release}" ] && . "$PPE_RELEASE"
 
@@ -100,8 +101,10 @@ unresolved() {
 # the first boot of the new image does, and lists in $WORK/missing those that
 # cannot be installed. The new image's own packages count as present: they are
 # installed already and the release does not publish all of them as a feed.
-# The result is cached per release and package list.
+# The result is cached per release and package list. Returns 1 with the reason
+# in $WORK/check.err when the feeds cannot be read: nothing was checked then.
 preflight() {
+	rm -f "$WORK/check.err"
 	extras >"$WORK/extras"
 	key=$(cat "$WORK/extras" | md5sum | cut -c1-8)
 	[ -f "$WORK/missing.$LATEST.$key" ] && { cp "$WORK/missing.$LATEST.$key" "$WORK/missing"; return 0; }
@@ -117,7 +120,16 @@ preflight() {
 	set -- --root "$sim" --arch "$(cat /etc/apk/arch)" --keys-dir /etc/apk/keys \
 		--repositories-file "$WORK/repositories" --no-logfile
 	[ -d "$sim/lib/apk/db" ] || apk add "$@" --initdb >/dev/null 2>&1 || die "cannot set up the package check"
-	apk update "$@" >"$WORK/check.log" 2>&1 || die "cannot read the package feeds of $LATEST"
+	if ! apk update "$@" >"$WORK/check.log" 2>&1; then
+		# The image trusts the key of the build it came from. A release
+		# signed with another key installs its packages once it runs.
+		if grep -q UNTRUSTED "$WORK/check.log"; then
+			echo "the package feeds of $LATEST are signed with a key this image does not trust" >"$WORK/check.err"
+		else
+			echo "cannot read the package feeds of $LATEST" >"$WORK/check.err"
+		fi
+		return 1
+	fi
 	# shellcheck disable=SC2086
 	apk add "$@" --simulate $pkgs >"$WORK/check.log" 2>&1 ||
 		unresolved "$WORK/check.log" | grep -vxF -f "$WORK/manifest" | grep -xF "$pkgs" >"$WORK/missing"
@@ -131,20 +143,21 @@ cmd_status() {
 	# die() exits, so each step that can fail runs in a subshell of its own.
 	(
 		lookup
-		missing='' checked=true
+		missing='' checked=true why=''
 		if newer; then
 			avail=true
 			if (preflight); then
 				missing=$(tr '\n' ' ' <"$WORK/missing")
 			else
 				checked=false
+				why=$(cat "$WORK/check.err" 2>/dev/null)
 			fi
 		else
 			avail=false
 		fi
-		printf '{"board":"%s","current":"%s","group":"%s","latest":"%s","latest_time":%s,"update":%s,"image":"%s","size":%s,"extras":"%s","missing":"%s","checked":%s,"pending":"%s","auto":"%s"}\n' \
+		printf '{"board":"%s","current":"%s","group":"%s","latest":"%s","latest_time":%s,"update":%s,"image":"%s","size":%s,"extras":"%s","missing":"%s","checked":%s,"check_error":"%s","pending":"%s","auto":"%s"}\n' \
 			"$BOARD" "$TAG" "$GROUP" "$LATEST" "${LATEST_TIME:-0}" "$avail" "$IMAGE" "${SIZE:-0}" \
-			"$(extras | tr '\n' ' ')" "$missing" "$checked" "$pending" "${auto:-0}"
+			"$(extras | tr '\n' ' ')" "$missing" "$checked" "$why" "$pending" "${auto:-0}"
 	) 2>/dev/null ||
 		printf '{"board":"%s","current":"%s","group":"%s","error":"cannot reach the release list","pending":"%s","auto":"%s"}\n' \
 			"$BOARD" "$TAG" "$GROUP" "$pending" "${auto:-0}"
@@ -154,7 +167,7 @@ cmd_check() {
 	lookup
 	if newer; then
 		echo "update available: $TAG -> $LATEST ($IMAGE)"
-		preflight
+		preflight || die "$(cat "$WORK/check.err"); the kept packages were not checked"
 		x=$(grep -vxF -f "$WORK/missing" "$WORK/extras" | tr '\n' ' ')
 		[ -n "$x" ] && echo "kept after the update: $x"
 		[ -s "$WORK/missing" ] && echo "not available in $LATEST: $(tr '\n' ' ' <"$WORK/missing")"
@@ -165,11 +178,15 @@ cmd_check() {
 }
 
 # $1: the release to flash, the newest when empty; $2: -f to flash although a
-# kept package cannot be installed from it.
+# kept package cannot be installed from it or could not be checked.
 cmd_update() {
 	lookup "$1"
 	newer || { echo "up to date: $TAG"; return 1; }
-	preflight
+	if ! preflight; then
+		[ "$2" = "-f" ] ||
+			die "$(cat "$WORK/check.err"); the kept packages were not checked - staying on $TAG (ppe-update update -f flashes anyway)"
+		log "$(cat "$WORK/check.err"); flashing without the package check"
+	fi
 	if [ -s "$WORK/missing" ] && [ "$2" != "-f" ]; then
 		die "$LATEST cannot install $(tr '\n' ' ' <"$WORK/missing")- staying on $TAG (ppe-update update -f flashes anyway)"
 	fi
