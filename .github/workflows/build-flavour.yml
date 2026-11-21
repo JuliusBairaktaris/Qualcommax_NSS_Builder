@@ -217,7 +217,10 @@ jobs:
           grep -E '^PKG_(SOURCE_VERSION|SOURCE_URL|MIRROR_HASH):=' "$mk"
 
       # The image trusts the key that signs its packages (base-files ships
-      # public-key.pem). Without the secret, OpenWrt makes a key per build.
+      # public-key.pem). Without the secret, OpenWrt makes a key per build
+      # group, and no image can read the feeds of the next release: ppe-update
+      # then cannot check the kept packages before it flashes. The public half
+      # is site/public-key.pem, which the site serves.
       # /etc/ppe-release tells ppe-update where its newer images are.
       - name: Point the image at its kmod feed
         working-directory: openwrt
@@ -230,6 +233,11 @@ jobs:
           set -euo pipefail
           if [[ -n "$APK_SIGN_KEY" ]]; then
             (umask 077; printf '%s\n' "$APK_SIGN_KEY" >private-key.pem)
+            openssl ec -in private-key.pem -pubout 2>/dev/null |
+              cmp -s - ../builder/site/public-key.pem ||
+              { echo "::error::APK_SIGN_KEY is not the key of site/public-key.pem"; exit 1; }
+          else
+            echo "::warning::no APK_SIGN_KEY secret: this release is signed with a key of its own, and ppe-update on its images cannot check packages against the next release"
           fi
           # The OpenWrt target feed serves another kernel's modules; this
           # build's own target packages replace it.
