@@ -1,0 +1,18 @@
+ERROR: unable to select packages:
+  ip-full-7.3.0-r1:
+    conflicts: ip-tiny-7.3.0-r1[ip=7.3.0-r1]
+    satisfies: world[ip-full@snapshot]
+               sqm-scripts-1.8.3-r1[ip]
+  ip-tiny-7.3.0-r1:
+    conflicts: ip-full-7.3.0-r1[ip=7.3.0-r1]
+    satisfies: world[ip-tiny]
+               sqm-scripts-1.8.3-r1[ip]
+  tc-full-7.3.0-r1:
+    conflicts: tc-tiny-7.3.0-r1[tc=7.3.0-r1]
+    satisfies: world[tc-full@snapshot]
+               qca-ppe-qos-1[tc]
+               sqm-scripts-1.8.3-r1[tc]
+  tc-tiny-7.3.0-r1:
+    conflicts: tc-full-7.3.0-r1[tc=7.3.0-r1]
+    satisfies: world[tc-tiny] qca-ppe-qos-1[tc]
+               sqm-scripts-1.8.3-r1[tc]

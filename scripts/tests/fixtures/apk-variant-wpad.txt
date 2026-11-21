@@ -1,0 +1,9 @@
+ERROR: unable to select packages:
+  wpad-mbedtls-2026.08.07~831364bf-r6:
+    conflicts: wpad-openssl-2026.08.07~831364bf-r6[hostapd=2026.08.07~831364bf-r6]
+               wpad-openssl-2026.08.07~831364bf-r6[wpa-supplicant=2026.08.07~831364bf-r6]
+    satisfies: world[wpad-mbedtls@snapshot]
+  wpad-openssl-2026.08.07~831364bf-r6:
+    conflicts: wpad-mbedtls-2026.08.07~831364bf-r6[hostapd=2026.08.07~831364bf-r6]
+               wpad-mbedtls-2026.08.07~831364bf-r6[wpa-supplicant=2026.08.07~831364bf-r6]
+    satisfies: world[wpad-openssl]

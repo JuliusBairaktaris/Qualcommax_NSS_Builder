@@ -84,15 +84,31 @@ jobs:
           } >>ib/repositories
 
       - name: Build the image
+        id: image
         working-directory: ib
         env:
           PROFILE: ${{ steps.req.outputs.profile }}
           PACKAGES: ${{ steps.req.outputs.packages }}
         run: |
           set -euo pipefail
-          make image PROFILE="$PROFILE" PACKAGES="$PACKAGES" FILES=files \
-            EXTRA_IMAGE_NAME="custom${ISSUE}" BIN_DIR="$GITHUB_WORKSPACE/out" 2>&1 |
-            tee "$RUNNER_TEMP/build.log"
+          build() {
+            make image PROFILE="$PROFILE" PACKAGES="$1" FILES=files \
+              EXTRA_IMAGE_NAME="custom${ISSUE}" BIN_DIR="$GITHUB_WORKSPACE/out" 2>&1 |
+              tee "$RUNNER_TEMP/build.log"
+          }
+          if ! build "$PACKAGES"; then
+            # A request for ip-full, tc-full or another wpad, or for a package
+            # that depends on one, cannot be installed beside the image's own
+            # variant. The image's goes, and stays out of later updates the
+            # way a removed package does.
+            mapfile -t swap < <(python3 ../scripts/custom-conflicts.py "$RUNNER_TEMP/build.log" "$PACKAGES")
+            [[ ${#swap[@]} -eq 2 ]] || exit 1
+            for p in ${swap[1]}; do
+              echo "echo '!$p' >>/etc/apk/world" >>files/etc/uci-defaults/98-custom-world
+            done
+            echo "replaced=${swap[1]}" >>"$GITHUB_OUTPUT"
+            build "${swap[0]}"
+          fi
           ls -l "$GITHUB_WORKSPACE/out"
 
       - name: Publish and answer
@@ -100,6 +116,7 @@ jobs:
           TAG: ${{ steps.req.outputs.tag }}
           TITLE: ${{ steps.req.outputs.title }}
           SUMMARY: ${{ steps.req.outputs.summary }}
+          REPLACED: ${{ steps.image.outputs.replaced }}
         run: |
           set -euo pipefail
           cd out
@@ -118,6 +135,10 @@ jobs:
             echo "- [${imgs[0]}](${base}/${imgs[0]})"
             echo "- sha256 \`$(cut -d' ' -f1 sha256sums)\`"
             echo "- [package manifest](${base}/$(find . -maxdepth 1 -name '*.manifest' -printf '%f\n' | head -n1))"
+            if [[ -n "$REPLACED" ]]; then
+              echo
+              echo "Left out, because a package you added replaces or conflicts with it: \`${REPLACED// /\`, \`}\`."
+            fi
             echo
             echo "Flash it with sysupgrade over an existing OpenWrt install. The download goes away after ${KEEP_DAYS} days."
             echo "Later updates: LuCI System > Firmware update, or \`ppe-update check\`; packages you added or removed stay that way after each update."
