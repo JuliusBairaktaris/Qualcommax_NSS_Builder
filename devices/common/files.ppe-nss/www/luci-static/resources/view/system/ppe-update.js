@@ -35,7 +35,10 @@ return view.extend({
 			E('p', { 'class': 'spinning' }, _('Downloading and checking the image. The router flashes it and reboots; settings and added packages are kept.')),
 			E('pre', { 'id': 'ppe-update-log', 'style': 'max-height:12em;overflow:auto;white-space:pre-wrap' })
 		]);
-		return fs.exec('/usr/sbin/ppe-update', force ? [ 'start', '-f' ] : [ 'start' ]).then(L.bind(this.pollLog, this));
+		return fs.exec('/usr/sbin/ppe-update', force ? [ 'start', '-f' ] : [ 'start' ]).then(L.bind(this.pollLog, this)).catch(function(e) {
+			ui.hideModal();
+			ui.addNotification(null, E('p', _('The update did not start: %s').format(e.message)), 'error');
+		});
 	},
 
 	render: function(st) {

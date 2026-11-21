@@ -68,4 +68,15 @@ check "restore clears an installed list" "absent" \
   "$([[ -e "$tmp/state/packages" ]] && echo present || echo absent)"
 check "restore installs it in one transaction" "!ip-tiny pbr tailscale" "$(cat "$tmp/added")"
 
+# Case 4: start returns at once and holds none of the caller's descriptors, or
+# rpcd would not answer LuCI before the update ends. The reader of the pipe
+# sees its end only when every writer has closed it.
+begin=$(date +%s)
+PPE_LOG="$tmp/log" ppe 'cmd_update() { sleep 5; }; cmd_start' | cat
+check "start does not keep the caller's stdout" "1" "$(( $(date +%s) - begin < 4 ))"
+check "start empties the log before it returns" "" "$(cat "$tmp/log")"
+PPE_LOG="$tmp/log" ppe 'cmd_update() { die stopped; }; cmd_start'
+sleep 1
+check "start logs the exit status of an update that dies" "stopped exit 2" "$(tr '\n' ' ' <"$tmp/log" | sed 's/ $//')"
+
 exit "$fail"

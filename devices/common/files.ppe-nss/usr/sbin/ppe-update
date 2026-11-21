@@ -17,6 +17,7 @@
 
 STATE=${PPE_STATE:-/etc/ppe-update}
 WORK=${PPE_WORK:-/tmp/ppe-update}
+LOG=${PPE_LOG:-/tmp/ppe-update.log}
 BOARD=$(cat /tmp/sysinfo/board_name 2>/dev/null)
 
 log() { logger -t ppe-update "$*"; echo "$*" >&2; }
@@ -187,8 +188,13 @@ cmd_update() {
 	sysupgrade "$WORK/$IMAGE"
 }
 
+# The log is emptied before this returns, so LuCI never reads the end of an
+# earlier run. The job keeps none of the caller's descriptors: rpcd answers an
+# exec only once its output pipes are closed. die() exits, so the update runs
+# in a subshell of its own and the exit line LuCI waits for is always written.
 cmd_start() {
-	(cmd_update "" "$1" </dev/null >/tmp/ppe-update.log 2>&1; echo "exit $?" >>/tmp/ppe-update.log) &
+	: >"$LOG"
+	( (cmd_update "" "$1") >"$LOG" 2>&1; echo "exit $?" >>"$LOG") </dev/null >/dev/null 2>&1 &
 }
 
 # A release is installed once it has been out for the configured delay: the
