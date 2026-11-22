@@ -209,9 +209,14 @@ cmd_update() {
 # earlier run. The job keeps none of the caller's descriptors: rpcd answers an
 # exec only once its output pipes are closed. die() exits, so the update runs
 # in a subshell of its own and the exit line LuCI waits for is always written.
+# rpcd answers the caller when it has read the end of stdout and stderr, which
+# it does as this shell exits. The shell gives both up before it starts the
+# update: an update that closed them itself, after the shell had gone, would
+# leave rpcd waiting for its exec timeout.
 cmd_start() {
 	: >"$LOG"
-	( (cmd_update "" "$1") >"$LOG" 2>&1; echo "exit $?" >>"$LOG") </dev/null >/dev/null 2>&1 &
+	exec </dev/null >/dev/null 2>&1
+	( (cmd_update "" "$1") >"$LOG" 2>&1; echo "exit $?" >>"$LOG") &
 }
 
 # A release is installed once it has been out for the configured delay: the

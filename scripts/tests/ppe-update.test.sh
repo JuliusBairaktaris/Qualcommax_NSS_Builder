@@ -102,5 +102,13 @@ check "start empties the log before it returns" "" "$(cat "$tmp/log")"
 PPE_LOG="$tmp/log" ppe 'cmd_update() { die stopped; }; cmd_start'
 sleep 1
 check "start logs the exit status of an update that dies" "stopped exit 2" "$(tr '\n' ' ' <"$tmp/log" | sed 's/ $//')"
+# The shell that starts the update has let go of both pipes by the time it
+# exits, however the scheduler orders it and the update: one CPU makes the
+# update run last. rpcd misses a pipe closed after the exit.
+printf '#!/bin/sh\nPPE_UPDATE_LIB=1 PPE_RELEASE=/dev/null PPE_LOG=%s . %s\ncmd_update() { sleep 1; }\ncmd_start\n' \
+  "$tmp/log" "$script" >"$tmp/start"
+chmod +x "$tmp/start"
+check "start has closed its pipes when it exits" "0 of 200 runs left a pipe open when the command exited" \
+  "$(taskset -c 0 python3 "$here/exec-eof.py" 200 "$tmp/start")"
 
 exit "$fail"
