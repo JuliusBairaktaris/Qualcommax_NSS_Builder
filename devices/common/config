@@ -239,3 +239,6 @@ CONFIG_PACKAGE_kmod-fs-nfs=y
 CONFIG_PACKAGE_kmod-fs-nfs-v3=y
 CONFIG_PACKAGE_nfs-utils=y
 CONFIG_PACKAGE_rpcbind=y
+CONFIG_PACKAGE_kmod-gre
+CONFIG_PACKAGE_gre
+CONFIG_PACKAGE_luci-proto-gre
